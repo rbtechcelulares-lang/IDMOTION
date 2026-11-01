@@ -59,3 +59,8 @@
 
 ## Trilhas automáticas
 - Sem trilha enviada, o diretor escolhe e compõe uma (trap, pop ou light, portadas da skill RBTech para TypeScript, sem direitos de terceiros), variando bpm/tom/semente por projeto; brilhos nas trocas de cena e impacto no CTA; ducking sob a fala. Chat: "trilha trap|pop|light", "outra trilha", "trilha mais rápida/lenta", "sem trilha".
+
+## Motion por comandos (fundos, texturas, ícones, emojis)
+- Vídeo 100% motion com tema: fundos (brilho dourado, preto, branco, papel/creme, amarelo, gradiente) por vídeo ou por cena; texturas (granulada, pontilhada, grade, linhas, listras); ícones (Lucide) e emojis flutuando com profundidade; ícone neon/tile de app ou emoji por cena.
+- Novas cenas: comparação "A vs B", contador com anel, check; texto revelado palavra a palavra com *destaque* e ~riscado~; CTA em pílula com seta.
+- Tudo por instruções ("fundo: branco", "📞 linha", "Outro R$ 49 vs Nosso R$ 37,90", "Menos de R$ 1,26", "✓ texto") e chat ("fundo amarelo na cena 2", "textura pontilhada", "emojis 🔥 📱", "emoji 💛 na cena 3", "destaque garantia", "riscar caderno").

@@ -26,9 +26,15 @@ TRILHA: se hasMusic=true use {"volume":0.16-0.22,"track":null} (trilha enviada).
 pop = animado/lançamento/leve (98-114), light = premium/calmo/clean (80-92); volume 0.16-0.2 com fala; varie bpm/shift/seed a cada vídeo.`;
 
 const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
-{"mode":"motion","format":...,"preset":...,"clips":[],"motion":{"scenes":[{"kind":"title"|"feature"|"price"|"cta","text":string<=90,"sub"?:string<=120,"duration":0.8-8}]},
+{"mode":"motion","format":...,"preset":...,"clips":[],"motion":{
+  "theme":{"bg":"glow"|"black"|"white"|"paper"|"yellow"|"gradient","texture":"none"|"grain"|"dots"|"grid"|"lines"|"stripes","floaters":{"items":[ícones Lucide ou emojis]}|null},
+  "scenes":[{"kind":"title"|"feature"|"price"|"cta"|"compare"|"counter"|"check","text":string<=90,"sub"?:string<=120,"duration":0.8-8,
+    "icon"?: nome de ícone Lucide (Phone, MessageSquareText, NotebookText, Sheet, Cloud, ShieldCheck, Gift, Truck, CreditCard, Wrench, Tag, Zap, Smartphone, Users, MapPin, Sparkles, BadgeCheck, Clock, ShoppingCart) ou um emoji,
+    "bg"?: fundo só desta cena, "compare"?: {"left":{"label","value","sub"?},"right":{"label","value","sub"?}} }]},
  "captions":{"enabled":false,"position":"bottom","size":"md","items":[]},"overlays":{"intro":null,"texts":[],"price":null,"cta":null},
  "audio":{"sourceVolume":1,"music":{"volume":0.9,"track":{"genre":"trap"|"pop"|"light","bpm":number,"shift":number,"seed":number}|null},"narration":{"text":string,"volume":1}|null,"normalize":true},"notes":string}
+Texto: use *palavra* para destacar (cor de acento) e ~palavra~ para riscar. compare = dois cards "A vs B" (right é o vencedor); counter = número que conta (text "R$ 1,26", sub "Menos de"); check = ✓ + texto.
+Visual: premium → bg glow + grain + ícones em tile; viral → black + stripes + emojis; cinematic → black + grain. Use bg "paper" para o "jeito antigo/papel". Obedeça pedidos de fundo/textura/emoji do usuário.
 Regras: 1ª cena "title", última "cta". Textos curtos e fortes (até ~8 palavras); em "price" o text é o valor ("R$ 499,90") e sub o contexto ("iPhones a partir de").
 Use só informações das instruções. Duração total típica 12-30s. Trilha: se hasMusic=true use "track":null; senão escolha track (trap energia, pop animado, light premium) com volume 0.9.`;
 

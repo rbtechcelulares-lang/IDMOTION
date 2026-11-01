@@ -56,6 +56,7 @@ jobs:
         run: |
           command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
           fc-list | grep -qi dejavu || sudo apt-get install -y -qq fonts-dejavu-core || true
+          fc-list | grep -qi "color emoji" || sudo apt-get install -y -qq fonts-noto-color-emoji || true
           ffmpeg -version | head -1
       - name: Cache de dependências e Chrome
         id: nm

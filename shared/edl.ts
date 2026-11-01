@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FORMATS, STYLES } from "./constants";
+import { BACKGROUNDS, TEXTURES } from "./motion";
 
 /** EDL (Edit Decision List) do ID MOTION. Tempos em segundos. */
 export const ClipSchema = z.object({
@@ -14,19 +15,29 @@ const Timed = { start: z.number().min(0), end: z.number().positive() };
 
 export const CaptionSchema = z.object({ ...Timed, text: z.string().min(1).max(120) });
 
-export const SCENE_KINDS = ["title", "feature", "price", "cta"] as const;
+export const SCENE_KINDS = ["title", "feature", "price", "cta", "compare", "counter", "check"] as const;
+const CompareSide = z.object({ label: z.string().max(40).default(""), value: z.string().min(1).max(30), sub: z.string().max(60).optional() });
+// Texto aceita *destaque* (cor de acento) e ~riscado~.
 export const MotionSceneSchema = z.object({
   kind: z.enum(SCENE_KINDS).default("feature"),
   text: z.string().min(1).max(90),
   sub: z.string().max(120).optional(),
   duration: z.number().min(0.8).max(8).default(2.2),
+  icon: z.string().max(40).optional(), // nome de ícone (Lucide) ou emoji
+  bg: z.enum(BACKGROUNDS).optional(), // fundo só desta cena
+  compare: z.object({ left: CompareSide, right: CompareSide }).optional(),
+});
+export const MotionThemeSchema = z.object({
+  bg: z.enum(BACKGROUNDS).default("glow"),
+  texture: z.enum(TEXTURES).default("grain"),
+  floaters: z.object({ items: z.array(z.string().max(40)).max(12) }).nullable().default(null), // ícones/emojis flutuando
 });
 
 export const EdlSchema = z.object({
   version: z.literal(1).default(1),
   // video = edição do vídeo enviado · motion = vídeo 100% animado (sem vídeo-fonte)
   mode: z.enum(["video", "motion"]).default("video"),
-  motion: z.object({ scenes: z.array(MotionSceneSchema).min(1).max(30) }).nullable().default(null),
+  motion: z.object({ theme: MotionThemeSchema.default({ bg: "glow", texture: "grain", floaters: null }), scenes: z.array(MotionSceneSchema).min(1).max(30) }).nullable().default(null),
   format: z.enum(FORMATS),
   preset: z.enum(STYLES),
   fps: z.literal(30).default(30),

@@ -101,7 +101,7 @@ export function ProjectView({ id }: { id: string }) {
             {edl.mode === "motion" && (
               <ol className="mb-4 space-y-1 text-sm">
                 {edl.motion?.scenes.map((c, i) => (
-                  <li key={i} className="flex justify-between gap-2 border-b border-line/60 py-1"><span className="min-w-0 truncate"><span className="text-volt">#{i + 1}</span> {c.text}</span><span className="shrink-0 text-smoke">{{ title: "abertura", feature: "cena", price: "preço", cta: "CTA" }[c.kind]} · {sec(c.duration)}</span></li>
+                  <li key={i} className="flex justify-between gap-2 border-b border-line/60 py-1"><span className="min-w-0 truncate"><span className="text-volt">#{i + 1}</span> {c.text}</span><span className="shrink-0 text-smoke">{({ title: "abertura", feature: "cena", price: "preço", cta: "CTA", compare: "comparação", counter: "contador", check: "check" } as Record<string, string>)[c.kind]}{c.icon ? ` ${/\p{Extended_Pictographic}/u.test(c.icon) ? c.icon : "◆"}` : ""} · {sec(c.duration)}</span></li>
                 ))}
               </ol>
             )}

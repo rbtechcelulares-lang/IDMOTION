@@ -130,3 +130,25 @@ test("trilha: diretor escolhe e varia; chat troca estilo", async () => {
   assert.equal(r2.edl.audio.music?.volume, 0.4);
   assert.equal(applyCommands(r2.edl, "sem trilha", a)!.edl.audio.music, null);
 });
+
+test("motion visual: comparação, contador, check, ícones e comandos de fundo/textura/emoji", async () => {
+  const { motionPlan } = await import("../shared/director/heuristic");
+  const edl = motionPlan({ name: "Reparo", format: "9:16", style: "premium", objective: "Venda", hasMusic: false, hasVideo: false,
+    instructions: "📞 Cliente ligando o dia inteiro\nOS no ~caderno~ que molha\n✓ Sem preocupação\nOutro sistema R$ 49 vs RBTech R$ 37,90\nMenos de R$ 1,26\nfundo: branco\ntextura: pontilhada" });
+  const s = edl.motion!.scenes;
+  assert.equal(s[1].icon, "📞");
+  assert.equal(s.find((x) => x.text.includes("caderno"))?.bg, "paper");
+  assert.equal(s.find((x) => x.kind === "check")?.text, "Sem preocupação");
+  const cmp = s.find((x) => x.kind === "compare")!;
+  assert.deepEqual([cmp.compare!.left.value, cmp.compare!.right.value, cmp.compare!.right.label], ["R$ 49", "R$ 37,90", "RBTech"]);
+  assert.equal(s.find((x) => x.kind === "counter")?.text, "R$ 1,26");
+  assert.deepEqual([edl.motion!.theme.bg, edl.motion!.theme.texture], ["white", "dots"]);
+  const r = applyCommands(edl, "fundo amarelo, textura granulada, emojis 🔥 📱, emoji 💛 na cena 2, destaque dia inteiro", a)!;
+  assert.deepEqual([r.edl.motion!.theme.bg, r.edl.motion!.theme.texture], ["yellow", "grain"]);
+  assert.deepEqual(r.edl.motion!.theme.floaters?.items, ["🔥", "📱"]);
+  assert.equal(r.edl.motion!.scenes[1].icon, "💛");
+  assert.ok(r.edl.motion!.scenes[1].text.includes("*dia inteiro*"));
+  const r2 = applyCommands(r.edl, "fundo preto na cena 3, sem emojis", a)!;
+  assert.equal(r2.edl.motion!.scenes[2].bg, "black");
+  assert.equal(r2.edl.motion!.theme.floaters, null);
+});

@@ -3,6 +3,7 @@ import { FORMATS, STYLES, type Format, type Style } from "../constants";
 import type { Analysis } from "./types";
 import { fixText } from "./textfix";
 import { trackFor, trackVolume, type Genre } from "./music";
+import { BG_WORDS, TEXTURE_WORDS, iconFor, type Background } from "../motion";
 
 export const COMMAND_HELP = [
   "estilo viral | cinematic | premium",
@@ -15,6 +16,9 @@ export const COMMAND_HELP = [
   "abertura: Novo iPhone / sem abertura",
   "texto: Garantia de 1 ano",
   "legenda maior | menor | no centro | embaixo | em cima | sem legenda | com legenda",
+  "fundo branco | preto | creme | amarelo | brilho [na cena 2] · textura granulada | pontilhada | grade | linhas | listras | sem textura",
+  "emojis 🔥 📱 💛 (flutuando) · emoji 🔥 na cena 2 · ícone telefone na cena 3 · ícones flutuantes · sem ícones",
+  "destaque garantia · riscar caderno",
   "trilha trap | pop | light · outra trilha · trilha mais rápida · volume da música 30% · sem trilha",
   "narração: texto… / sem narração",
 ];
@@ -62,6 +66,50 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
     if (/sem pre[çc]o/.test(low)) { edl.motion!.scenes = motion.filter((x) => x.kind !== "price"); done.push("preço removido"); }
     if ((m = text.match(/cta\s*[:=]\s*["“]?([^"”\n]+)/i))) { setKind("cta", fixText(m[1].trim()).slice(0, 90)); done.push(`CTA "${m[1].trim()}"`); }
     if ((m = text.match(/(?:abertura|t[ií]tulo)\s*[:=]\s*["“]?([^"”\n]+)/i))) { setKind("title", fixText(m[1].trim()).slice(0, 90)); done.push(`abertura "${m[1].trim()}"`); }
+    // ---- visual: fundo, textura, emojis, ícones, destaque, riscado ----
+    const theme = edl.motion!.theme;
+    const sceneIdx = (s: string) => { const k = s.match(/cena\s*(\d+)/); return k ? Number(k[1]) - 1 : null; };
+    for (const part of low.split(/[,;\n]| e (?=fundo|textura|emoji|[ií]cone|destaq|risc)/)) {
+      const p = part.trim();
+      if (!p) continue;
+      const idx = sceneIdx(p);
+      if (/\bfundo\b/.test(p)) {
+        const bg = BG_WORDS.find(([re]) => re.test(p))?.[1] as Background | undefined;
+        if (bg && idx !== null && motion[idx]) { motion[idx].bg = bg; done.push(`fundo ${bg} na cena ${idx + 1}`); }
+        else if (bg) { theme.bg = bg; motion.forEach((x) => delete x.bg); done.push(`fundo ${bg}`); }
+      }
+      if (/\btextura\b|granulad|pontilhad|quadriculad|listrad/.test(p)) {
+        const tx = TEXTURE_WORDS.find(([re]) => re.test(p))?.[1];
+        if (tx) { theme.texture = tx; done.push(`textura ${tx}`); }
+      }
+      if (/sem (emojis?|[ií]cones?)( flutuantes)?$/.test(p) && idx === null) { theme.floaters = null; done.push("sem ícones flutuantes"); continue; }
+      const emojis = [...part.matchAll(/\p{Extended_Pictographic}(?:\uFE0F)?/gu)].map((x) => x[0]);
+      if (/emoji|[ií]cone/.test(p)) {
+        if (idx !== null && motion[idx]) {
+          if (/sem (emoji|[ií]cone)/.test(p)) { delete motion[idx].icon; done.push(`sem ícone na cena ${idx + 1}`); }
+          else {
+            const ic = emojis[0] ?? iconFor(p.replace(/[ií]cone|emoji|na cena\s*\d+|de|do|da/g, " "));
+            if (ic) { motion[idx].icon = ic; done.push(`ícone ${emojis[0] ?? ic} na cena ${idx + 1}`); }
+          }
+        } else if (emojis.length) { theme.floaters = { items: emojis.slice(0, 8) }; done.push(`emojis flutuando ${emojis.join(" ")}`); }
+        else if (/flutua|fundo|voando/.test(p) || /^(com )?[ií]cones$|^emojis$/.test(p)) {
+          const items = [...new Set(motion.map((x) => x.icon).filter((x): x is string => !!x))];
+          const named = iconFor(p.replace(/[ií]cones?|flutuantes?|emojis?|de|com/g, " "));
+          theme.floaters = { items: (named ? [named, ...items] : items.length ? items : ["Sparkles", "Smartphone", "MessageSquareText"]).slice(0, 6) };
+          done.push("ícones flutuantes");
+        }
+      }
+    }
+    if ((m = text.match(/\bdestaqu?e?\w*\s*[:=]?\s*["“]?([^"”,\n]+)/i))) {
+      const w = m[1].trim(); let hit = false;
+      motion.forEach((x) => { if (x.text.toLowerCase().includes(w.toLowerCase()) && !x.text.includes(`*${w}`)) { x.text = x.text.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "i"), "*$1*"); hit = true; } });
+      if (hit) done.push(`destaque "${w}"`);
+    }
+    if ((m = text.match(/\brisca\w*\s*[:=]?\s*["“]?([^"”,\n]+)/i))) {
+      const w = m[1].trim(); let hit = false;
+      motion.forEach((x) => { if (x.text.toLowerCase().includes(w.toLowerCase())) { x.text = x.text.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "i"), "~$1~"); hit = true; } });
+      if (hit) done.push(`riscado "${w}"`);
+    }
     if ((m = text.match(/\b(?:texto|cena|adicion\w*)\s*[:=]\s*["“]?([^"”\n]+)/i))) {
       const at = motion.findIndex((x) => x.kind === "price" || x.kind === "cta");
       motion.splice(at < 0 ? motion.length : at, 0, { kind: "feature", text: fixText(m[1].trim()).slice(0, 90), duration: 2.4 });

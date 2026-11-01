@@ -11,7 +11,7 @@ const FIX: Record<string, string> = {
   estao: "estão", ai: "aí", la: "lá", tbem: "também",
   iphone: "iPhone", iphones: "iPhones", ipad: "iPad", ipads: "iPads", airpods: "AirPods", macbook: "MacBook", applewatch: "Apple Watch",
   apple: "Apple", whatsapp: "WhatsApp", whats: "WhatsApp", zap: "WhatsApp", wpp: "WhatsApp", insta: "Instagram", instagram: "Instagram",
-  direct: "direct", pix: "Pix", vip: "VIP", promax: "Pro Max",
+  direct: "direct", pix: "Pix", vip: "VIP", promax: "Pro Max", vs: "vs", x: "x", ok: "OK",
   rbtech: "RBTech", rbtec: "RBTech", rbteck: "RBTech", rbtek: "RBTech",
   seminovo: "seminovo", seminovos: "seminovos", seminova: "seminova", seminovas: "seminovas",
   perfums: "perfumes", perfum: "perfume", perfumes: "perfumes", premiun: "premium", premium: "premium",

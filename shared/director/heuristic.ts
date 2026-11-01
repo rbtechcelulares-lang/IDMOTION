@@ -3,6 +3,7 @@ import { finalizeEdl } from "./finalize";
 import { applyCommands } from "./commands";
 import { pickCta } from "./knowledge";
 import { chooseTrack, trackVolume } from "./music";
+import { BG_WORDS, EMOJI_RE, TEXTURE_WORDS, iconFor, type Background, type Texture } from "../motion";
 import { fixText, newReport, reportLine } from "./textfix";
 import type { Analysis, Brief, Director } from "./types";
 
@@ -52,37 +53,64 @@ const CTA_RE = /^(cta\s*[:=]\s*)|\b(acesse|chama|chame|compre|garanta|clique|lin
 
 /** Vídeo 100% motion: cada linha das instruções vira uma cena (título, benefícios, preço, CTA). */
 export function motionPlan(b: Brief): Edl {
-  const lines = (b.instructions || "")
-    .split(/\n|(?<=[.!?])\s+/)
-    .map((l) => l.trim().replace(/^[-•*\d.)\s]+/, "").replace(/[.;]+$/, ""))
-    .filter((l) => l && !/^(dura[çc][aã]o|narra[çc][aã]o|abertura|t[ií]tulo)\s*[:=]/i.test(l));
+  const all = (b.instructions || "").split(/\n|(?<=[.!?])\s+/).map((l) => l.trim().replace(/^[-•\d.)\s]+(?=\S)/, "").replace(/[.;]+$/, ""));
+  const directives = all.filter((l) => /^(fundo|textura|emojis?|[ií]cones?)\b/i.test(l));
+  const lines = all.filter((l) => l && !directives.includes(l) && !/^(dura[çc][aã]o|narra[çc][aã]o|abertura|t[ií]tulo)\s*[:=]/i.test(l));
   const p = parseBrief(b.instructions);
   const base = SCENE_SECONDS[b.style];
   const rep = newReport();
   const cap = (t: string, n = 90) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "…" : t);
-  const scenes: { kind: "title" | "feature" | "price" | "cta"; text: string; sub?: string; duration: number }[] = [];
+  type S = { kind: "title" | "feature" | "price" | "cta" | "compare" | "counter" | "check"; text: string; sub?: string; duration: number; icon?: string; bg?: Background; compare?: { left: { label: string; value: string }; right: { label: string; value: string } } };
+  const scenes: S[] = [];
   scenes.push({ kind: "title", text: cap(fixText(p.intro || b.name, rep) || b.name, 60), sub: b.objective || undefined, duration: base + 0.4 });
   let cta: string | null = p.cta;
-  for (const raw of lines) {
+  const money = (s: string) => { const m = s.match(PRICE_RE); return m ? (/R\$/.test(m[0]) ? m[0].replace(/\s+/, " ") : `R$ ${m[0]}`) : null; };
+  for (const raw0 of lines) {
+    const em = raw0.match(EMOJI_RE); // emoji no começo da linha = ícone da cena
+    const raw = em ? raw0.slice(em[0].length) : raw0;
     const l = fixText(raw, rep); // revisor: corrige grafia e descarta o que não faz sentido
     if (!l) continue;
+    const icon = em?.[1] ?? iconFor(l);
+    const bg: Background | undefined = /caderno|papel|planilha|anota/i.test(l) ? "paper" : undefined; // "jeito antigo" em papel
+    if (/^(?:✓|✔|check\s*[:=])/i.test(raw)) { scenes.push({ kind: "check", text: cap(l.replace(/^(?:check\s*[:=]\s*)/i, "")), duration: base + 0.2 }); continue; }
     if (CTA_RE.test(l) && !PRICE_RE.test(l)) { cta = l.replace(/^cta\s*[:=]\s*/i, ""); continue; }
-    const m = l.match(PRICE_RE);
-    if (m) {
-      const value = /R\$/.test(m[0]) ? m[0].replace(/\s+/, " ") : `R$ ${m[0]}`;
-      const label = l.replace(m[0], "").replace(/R\$\s*/i, "").replace(/\s{2,}/g, " ").trim();
-      scenes.push({ kind: "price", text: cap(value, 30), sub: label ? cap(label, 120) : undefined, duration: base + 0.8 });
-    } else scenes.push({ kind: "feature", text: cap(l), duration: Math.min(5, base + l.length / 40) });
+    const vs = l.split(/\s+(?:vs\.?|x|contra)\s+/i);
+    if (vs.length === 2 && money(vs[0]) && money(vs[1])) {
+      const side = (s: string) => ({ label: cap(s.replace(PRICE_RE, "").replace(/R\$\s*/i, "").replace(/\s{2,}/g, " ").trim(), 40), value: money(s)! });
+      scenes.push({ kind: "compare", text: "Compare", compare: { left: side(vs[0]), right: side(vs[1]) }, duration: base + 1.6 });
+      continue;
+    }
+    const value = money(l);
+    if (value) {
+      const label = l.replace(l.match(PRICE_RE)![0], "").replace(/R\$\s*/i, "").replace(/\s{2,}/g, " ").trim();
+      const counter = /^(menos de|apenas|s[óo]|mais de|at[ée])\b/i.test(label) && label.split(" ").length <= 3;
+      scenes.push({ kind: counter ? "counter" : "price", text: cap(value, 30), sub: label ? cap(label, 120) : undefined, duration: base + (counter ? 1.2 : 0.8), icon: counter ? undefined : icon });
+    } else scenes.push({ kind: "feature", text: cap(highlight(l)), duration: Math.min(5, base + l.length / 40), icon, bg });
   }
   if (scenes.length === 1) scenes.push({ kind: "feature", text: cap(b.objective || b.name), duration: base });
-  scenes.push({ kind: "cta", text: cap(fixText(cta || "", rep) || (/venda|lan[çc]amento/i.test(b.objective) ? pickCta(b.name) : "Saiba mais"), 60), duration: base + 1 });
+  const ctaText = cap(fixText(cta || "", rep) || (/venda|lan[çc]amento/i.test(b.objective) ? pickCta(b.name) : "Saiba mais"), 60);
+  scenes.push({ kind: "cta", text: ctaText, duration: base + 1, icon: iconFor(ctaText) });
   if (p.target) {
     const total = scenes.reduce((s, x) => s + x.duration, 0);
     const k = p.target / total;
     scenes.forEach((x) => (x.duration = Math.max(0.8, Math.min(8, +(x.duration * k).toFixed(2)))));
   }
+  // tema: padrão do estilo + diretivas "fundo: branco", "textura: pontilhada", "emojis: 🔥 📱"
+  const dir = directives.join(" ").toLowerCase();
+  const bgD = directives.find((d) => /^fundo/i.test(d))?.toLowerCase() ?? "";
+  const txD = directives.find((d) => /^textura/i.test(d))?.toLowerCase() ?? "";
+  const theme = {
+    bg: (BG_WORDS.find(([re]) => re.test(bgD))?.[1] ?? (b.style === "premium" ? "glow" : "black")) as Background,
+    texture: (TEXTURE_WORDS.find(([re]) => re.test(txD))?.[1] ?? (b.style === "viral" ? "stripes" : "grain")) as Texture,
+    floaters: null as { items: string[] } | null,
+  };
+  const emojis = [...dir.matchAll(/\p{Extended_Pictographic}/gu)].map((m) => m[0]);
+  if (/sem (emojis?|[ií]cones?)/.test(dir)) theme.floaters = null;
+  else if (emojis.length) theme.floaters = { items: emojis.slice(0, 8) };
+  else theme.floaters = { items: [...new Set(scenes.map((s) => s.icon).filter((x): x is string => !!x))].slice(0, 6) };
+  if (theme.floaters && !theme.floaters.items.length) theme.floaters = null;
   return EdlSchema.parse({
-    mode: "motion", format: b.format, preset: b.style, clips: [], motion: { scenes: scenes.slice(0, 30) },
+    mode: "motion", format: b.format, preset: b.style, clips: [], motion: { theme, scenes: scenes.slice(0, 30) },
     captions: { enabled: false, position: "bottom", size: "md", items: [] },
     overlays: { intro: null, texts: [], price: null, cta: null },
     audio: { sourceVolume: 1, music: musicFor(b, true), narration: p.narration ? { text: p.narration, volume: 1 } : null, normalize: true },
@@ -95,6 +123,13 @@ export function musicFor(b: Brief, motion: boolean) {
   if (b.hasMusic) return { volume: motion ? 0.9 : b.style === "viral" ? 0.22 : 0.16, track: null };
   const track = chooseTrack({ style: b.style, objective: b.objective, text: b.instructions, seed: b.name });
   return { volume: trackVolume(track.genre, motion), track };
+}
+
+/** Destaca (com *…*) números, preços, parcelas e palavras de impacto. Respeita *…* já escrito. */
+export function highlight(s: string): string {
+  if (s.includes("*")) return s;
+  const m = s.match(/R\$\s?\d[\d.,]*|\b\d+\s?(?:x|%|anos?|meses|dias|gb|vezes)\b|\b(?:gr[aá]tis|garantia|brindes?|exclusiv\w*|premium|novo|nova|lan[çc]amento|seminovos?|pix)\b/i);
+  return m ? s.replace(m[0], `*${m[0]}*`) : s;
 }
 
 export function heuristicPlan(a: Analysis, b: Brief): Edl {
