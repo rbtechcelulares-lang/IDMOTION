@@ -47,7 +47,7 @@ export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: num
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: fd.get("name"), format, style, objective: fd.get("objective"), instructions: fd.get("instructions") }),
+        body: JSON.stringify({ name: fd.get("name"), format, style, objective: fd.get("objective"), instructions: `${fd.get("instructions") || ""}${fd.get("narration") ? "\nnarração: auto" : ""}`.trim() }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
@@ -104,6 +104,10 @@ export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: num
         <label className="label">Trilha (opcional)</label>
         <input name="music" type="file" accept={AUDIO_EXT.join(",") + ",audio/*"} className="input file:mr-4 file:rounded-md file:border-0 file:bg-paper file:px-3 file:py-1.5 file:text-ink" />
       </div>
+      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-line p-3">
+        <input type="checkbox" name="narration" className="h-5 w-5 accent-[#FFE600]" />
+        <span><span className="font-semibold">Narração ElevenLabs</span><span className="block text-xs text-smoke">O diretor escreve a narração a partir das cenas (dá para editar e desligar depois).</span></span>
+      </label>
       {err && <p className="text-sm text-red-400" role="alert">{err}</p>}
       {busy && (
         <div className="h-2 overflow-hidden rounded-full bg-line"><div className="h-full bg-volt transition-all" style={{ width: `${Math.round(progress! * 100)}%` }} /></div>

@@ -104,7 +104,7 @@ export async function buildMotionBase(edl: Edl, inp: { music?: string | null; na
   if (edl.audio.music && inp.music) {
     args.push("-stream_loop", "-1", "-i", inp.music);
     const fade = Math.min(1.5, total / 4);
-    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=0:${f3(total)},volume=${edl.audio.music.volume.toFixed(3)},afade=t=in:d=0.3,afade=t=out:st=${f3(total - fade)}:d=${f3(fade)}[mus]`);
+    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=0:${f3(total)},volume=${(edl.audio.music.volume * (edl.audio.narration && inp.narration ? 0.35 : 1)).toFixed(3)},afade=t=in:d=0.3,afade=t=out:st=${f3(total - fade)}:d=${f3(fade)}[mus]`);
     mix.push("[mus]");
     idx++;
   }

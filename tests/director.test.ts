@@ -258,3 +258,13 @@ test("IA: modelo indisponível/sobrecarregado → tenta o próximo; chave invál
   await assert.rejects(openAiCompatAsker({ baseUrl: base, apiKey: "k", model: "bad", fallbackModels: ["bom"], label: "g" }).ask("JSON", [{ type: "text", text: "oi" }]), /401/);
   server.close();
 });
+
+test("narração: texto escrito a partir das cenas", async () => {
+  const { motionPlan } = await import("../shared/director/heuristic");
+  const { buildNarration } = await import("../shared/director/narration");
+  const edl = motionPlan({ name: "X", format: "9:16", style: "viral", objective: "Venda", hasMusic: false, hasVideo: false, instructions: "Abertura: Chegou a semana do iPhone\niPhones a partir de R$ 599\nGarantia de 1 ano\nCTA: Chama no WhatsApp\nnarração: auto" });
+  assert.equal(edl.audio.narration, null);
+  const t = buildNarration(edl);
+  assert.match(t, /Chegou a semana do iPhone\. iPhones a partir de R\$ 599\. Garantia de 1 ano\. Chama no WhatsApp\./);
+  assert.ok(!/[*~]/.test(t));
+});

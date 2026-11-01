@@ -6,6 +6,14 @@ import { getTranscriber } from "./transcribe";
 import { ensureLocal, store } from "./storage";
 import { getDirector, type Analysis, type Brief } from "../../shared/director";
 import type { Job, JobCtx } from "./jobs";
+import { buildNarration } from "../../shared/director/narration";
+import type { Edl } from "../../shared/edl";
+
+/** Caixa "Narração ElevenLabs" no Novo Projeto ("narração: auto"): escreve a narração a partir do plano. */
+function autoNarration(edl: Edl, instructions: string) {
+  if (/narra[çc][aã]o\s*[:=]\s*auto/i.test(instructions || "") && (!edl.audio.narration || edl.audio.narration.text === "auto")) edl.audio.narration = { text: buildNarration(edl), volume: 1 };
+  return edl;
+}
 
 export async function runAnalyze(job: Job, ctx: JobCtx) {
   const { data: p, error } = await db.from("projects").select("*").eq("id", job.project_id).single();
@@ -51,7 +59,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   await ctx.progress(0.75, `AI Director (${director.name})`, true);
   const brief: Brief = { name: p.name, format: p.format, style: p.style, objective: p.objective, instructions: p.instructions, hasMusic: !!p.music_path, hasVideo: !!p.source_path };
   const jpegs = await Promise.all(frames.map(async (f) => ({ t: f.t, jpegBase64: (await fs.promises.readFile(f.file)).toString("base64") })));
-  const edl = await director.plan(analysis, brief, jpegs);
+  const edl = autoNarration(await director.plan(analysis, brief, jpegs), p.instructions);
   await ctx.checkCancel();
 
   const { data: last } = await db.from("edl_versions").select("version").eq("project_id", p.id).order("version", { ascending: false }).limit(1);
@@ -69,7 +77,7 @@ async function planMotion(p: Record<string, any>, ctx: JobCtx) { // eslint-disab
   const director = getDirector();
   await ctx.progress(0.5, `AI Director (${director.name}) — vídeo 100% motion`, true);
   const brief: Brief = { name: p.name, format: p.format, style: p.style, objective: p.objective, instructions: p.instructions, hasMusic: !!p.music_path, hasVideo: false };
-  const edl = await director.plan(analysis, brief);
+  const edl = autoNarration(await director.plan(analysis, brief), p.instructions);
   await ctx.checkCancel();
   const { data: last } = await db.from("edl_versions").select("version").eq("project_id", p.id).order("version", { ascending: false }).limit(1);
   const version = (last?.[0]?.version ?? 0) + 1;

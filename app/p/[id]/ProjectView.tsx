@@ -151,6 +151,8 @@ export function ProjectView({ id }: { id: string }) {
           )}
         </div>
 
+        {edl && !expired && <NarrationPanel id={id} edl={edl} disabled={busy || !!active} onChange={load} />}
+
         <div className="flex h-[520px] flex-col rounded-2xl border border-line bg-panel">
           <div className="flex items-center justify-between border-b border-line p-4">
             <h2 className="label !mb-0">Director Chat</h2>
@@ -215,6 +217,44 @@ function Reupload({ id, onDone }: { id: string; onDone: () => void }) {
         }} />
       {p !== null && <div className="mt-2 h-2 overflow-hidden rounded-full bg-line"><div className="h-full bg-volt" style={{ width: `${Math.round(p * 100)}%` }} /></div>}
       {e && <p className="mt-2 text-sm text-red-400">{e}</p>}
+    </div>
+  );
+}
+
+/** Interruptor da narração ElevenLabs (cria nova versão do plano; vale na próxima exportação). */
+function NarrationPanel({ id, edl, disabled, onChange }: { id: string; edl: Edl; disabled: boolean; onChange: () => void }) {
+  const on = !!edl.audio.narration;
+  const [text, setText] = useState(edl.audio.narration?.text ?? "");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => { setText(edl.audio.narration?.text ?? ""); }, [edl.audio.narration?.text]);
+  async function send(enabled: boolean, t?: string) {
+    setSaving(true); setErr("");
+    const r = await fetch(`/api/projects/${id}/narration`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled, text: t }) });
+    setSaving(false);
+    if (!r.ok) setErr((await r.json().catch(() => ({}))).error || `Erro ${r.status}`);
+    onChange();
+  }
+  return (
+    <div className="rounded-2xl border border-line bg-panel p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="label !mb-0">Narração (ElevenLabs)</h2>
+          <p className="mt-1 text-xs text-smoke">{on ? "Ligada — entra na próxima exportação." : "Desligada — vídeo só com trilha/áudio original."}</p>
+        </div>
+        <button type="button" role="switch" aria-checked={on} disabled={disabled || saving} onClick={() => send(!on)}
+          className={`relative h-8 w-14 shrink-0 rounded-full transition disabled:opacity-40 ${on ? "bg-volt" : "bg-line"}`}>
+          <span className={`absolute top-1 h-6 w-6 rounded-full bg-ink transition-all ${on ? "left-7" : "left-1 bg-paper"}`} />
+        </button>
+      </div>
+      {on && (
+        <div className="mt-3 space-y-2">
+          <textarea className="input !py-2 text-sm" rows={4} maxLength={2500} value={text} onChange={(e) => setText(e.target.value)} />
+          <button className="btn-ghost w-full" disabled={disabled || saving || text.trim() === edl.audio.narration?.text} onClick={() => send(true, text)}>Salvar texto da narração</button>
+          <p className="text-[11px] text-smoke">Precisa de ELEVENLABS_API_KEY e ELEVENLABS_VOICE_ID nos Secrets do GitHub. Áudio gerado é guardado em cache (mesmo texto não é cobrado de novo).</p>
+        </div>
+      )}
+      {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
     </div>
   );
 }

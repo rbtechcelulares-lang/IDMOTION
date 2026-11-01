@@ -19,7 +19,8 @@ export function parseBrief(instructions: string) {
   const cta = s.match(/CTA\s*[:=]\s*["“]?([^"”\n.]+)/i)?.[1].trim() ?? null;
   const intro = s.match(/(?:abertura|t[ií]tulo)\s*[:=]\s*["“]?([^"”\n.]+)/i)?.[1].trim() ?? null;
   const dur = s.match(/(\d{1,3})\s*(?:s\b|seg)/i)?.[1];
-  const narration = s.match(/narra[çc][aã]o\s*[:=]\s*["“]?([^"”\n]+)/i)?.[1].trim() ?? null;
+  const n0 = s.match(/narra[çc][aã]o\s*[:=]\s*["“]?([^"”\n]+)/i)?.[1].trim() ?? null;
+  const narration = n0 && !/^auto$/i.test(n0) ? n0 : null; // "auto" = o worker escreve a partir do plano
   return { price, cta, intro, target: duration ? Number(duration) : dur ? Number(dur) : null, narration };
 }
 

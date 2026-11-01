@@ -74,3 +74,6 @@
 
 ## Cérebro criativo com Gemini (grátis)
 - Diretor com IA trocável: Gemini (API compatível com OpenAI, padrão gemini-2.5-flash), Claude ou qualquer API compatível (Groq, Cloudflare…). A IA só planeja (entende pedido/briefing → EDL); a produção continua no motor (FFmpeg + Remotion). Rascunho por regras como ponto de partida e fallback; Status testa a IA.
+
+## Narração ElevenLabs liga/desliga
+- Interruptor "Narração (ElevenLabs)" na tela do projeto (texto escrito a partir das cenas, editável) e caixa no Novo Projeto ("narração: auto"). Trilha abaixa sob a voz no vídeo motion. Cache por hash evita cobrar o mesmo texto de novo.
