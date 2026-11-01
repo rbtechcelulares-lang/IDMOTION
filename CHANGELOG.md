@@ -7,3 +7,8 @@
 ## M2 — Home e Novo Projeto
 - Home com projetos recentes, botão Novo Projeto e histórico.
 - Novo Projeto: upload com progresso, formato, objetivo, estilo, instruções e trilha opcional; validação de tipo/tamanho/duração no cliente e servidor.
+
+## M3 — AI Director
+- Worker com fila atômica (`claim_job`), análise ffprobe/cenas/fala/frames/loudness e transcrição ElevenLabs opcional.
+- EDL v1 validado com zod; Director trocável (Claude via SDK com fallback heurístico; heurístico remove muletas, aplica preço/CTA/duração).
+- Testes: `npm test`.

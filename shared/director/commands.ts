@@ -1,0 +1,100 @@
+import { type Edl, edlDuration } from "../edl";
+import { FORMATS, STYLES, type Format, type Style } from "../constants";
+import type { Analysis } from "./types";
+
+export const COMMAND_HELP = [
+  "estilo viral | cinematic | premium",
+  "formato 9:16 | 16:9 | 1:1 | 4:5",
+  "duração 20s",
+  "mais rápido / mais lento",
+  "remover corte 3",
+  "preço R$ 4.299 / sem preço",
+  "CTA: Chama no direct / sem CTA",
+  "abertura: Novo iPhone / sem abertura",
+  "texto: Garantia de 1 ano",
+  "legenda maior | menor | no centro | embaixo | em cima | sem legenda | com legenda",
+  "volume da música 30% / sem música",
+  "narração: texto… / sem narração",
+];
+
+const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
+
+/** Interpreta comandos simples em português. Retorna null se nada foi entendido. */
+export function applyCommands(input: Edl, instruction: string, a: Analysis): { edl: Edl; reply: string } | null {
+  const edl = clone(input);
+  const done: string[] = [];
+  const text = instruction.trim();
+  const low = text.toLowerCase();
+  let m: RegExpMatchArray | null;
+
+  const style = STYLES.find((s) => new RegExp(`\\b${s}\\b`, "i").test(low)) as Style | undefined;
+  if (style && /estilo|preset|deix[ae]|mud[ae]|troc[ae]|vers[aã]o/.test(low)) { edl.preset = style; done.push(`estilo ${style}`); }
+
+  m = low.match(/\b(9:16|16:9|1:1|4:5)\b/);
+  if (m && FORMATS.includes(m[1] as Format)) { edl.format = m[1] as Format; done.push(`formato ${m[1]}`); }
+
+  if (/mais r[aá]pido|acelera|mais din[aâ]mico/.test(low)) { edl.clips.forEach((c) => (c.speed = Math.min(2, +((c.speed || 1) * 1.15).toFixed(2)))); done.push("ritmo +15%"); }
+  if (/mais lento|desacelera|mais calmo/.test(low)) { edl.clips.forEach((c) => (c.speed = Math.max(0.5, +((c.speed || 1) / 1.15).toFixed(2)))); done.push("ritmo -15%"); }
+
+  if ((m = low.match(/(?:remov|tir|corta|apag)\w*\s+(?:o\s+)?(?:corte|clipe|cena|trecho)\s*(\d+)/))) {
+    const i = Number(m[1]) - 1;
+    if (i >= 0 && i < edl.clips.length && edl.clips.length > 1) { edl.clips.splice(i, 1); done.push(`corte ${i + 1} removido`); }
+  }
+
+  if ((m = low.match(/dura[çc][aã]o\s*(?:de|para|=|:)?\s*(\d{1,3})\s*s?/))) {
+    const target = Math.max(3, Number(m[1]));
+    const clips: Edl["clips"] = [];
+    let t = 0;
+    for (const c of edl.clips) {
+      const d = (c.out - c.in) / (c.speed || 1);
+      if (t + d <= target) { clips.push(c); t += d; continue; }
+      const rest = target - t;
+      if (rest > 0.4) clips.push({ ...c, out: c.in + rest * (c.speed || 1) });
+      break;
+    }
+    edl.clips = clips.length ? clips : edl.clips.slice(0, 1);
+    done.push(`duração ≈ ${edlDuration(edl).toFixed(1)}s`);
+  }
+
+  if (/sem pre[çc]o|remov\w* (o )?pre[çc]o/.test(low)) { edl.overlays.price = null; done.push("preço removido"); }
+  else if ((m = text.match(/pre[çc]o\s*(?:para|:|=|de)?\s*(R\$\s?\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/i))) {
+    const value = m[1].startsWith("R$") ? m[1].replace(/\s+/, " ") : `R$ ${m[1]}`;
+    const d = edlDuration(edl);
+    const ctaD = edl.overlays.cta?.duration ?? 0;
+    edl.overlays.price = { ...(edl.overlays.price ?? { start: +(d * 0.55).toFixed(2), end: +(d - ctaD).toFixed(2), label: "por apenas" }), value };
+    done.push(`preço ${value}`);
+  }
+
+  if (/sem cta|remov\w* (o )?cta/.test(low)) { edl.overlays.cta = null; done.push("CTA removido"); }
+  else if ((m = text.match(/cta\s*[:=]\s*["“]?([^"”\n]+)/i))) { edl.overlays.cta = { duration: edl.overlays.cta?.duration ?? 3, text: m[1].trim().slice(0, 60) }; done.push(`CTA "${m[1].trim()}"`); }
+
+  if (/sem abertura|remov\w* (a )?abertura/.test(low)) { edl.overlays.intro = null; done.push("abertura removida"); }
+  else if ((m = text.match(/(?:abertura|t[ií]tulo)\s*[:=]\s*["“]?([^"”\n]+)/i))) { edl.overlays.intro = { duration: edl.overlays.intro?.duration ?? 2.2, sub: edl.overlays.intro?.sub, text: m[1].trim().slice(0, 60) }; done.push(`abertura "${m[1].trim()}"`); }
+
+  if ((m = text.match(/^texto\s*[:=]\s*["“]?([^"”\n]+)/im))) {
+    const d = edlDuration(edl);
+    const start = Math.min(d - 1, (edl.overlays.intro?.duration ?? 0) + 0.3);
+    edl.overlays.texts.push({ start, end: Math.min(d, start + 3), text: m[1].trim().slice(0, 80), position: "top" });
+    done.push(`texto "${m[1].trim()}"`);
+  }
+  if (/sem textos|remov\w* (os )?textos/.test(low)) { edl.overlays.texts = []; done.push("textos removidos"); }
+
+  if (/sem legenda/.test(low)) { edl.captions.enabled = false; done.push("legendas desligadas"); }
+  if (/com legenda|liga\w* (a )?legenda/.test(low)) { edl.captions.enabled = true; done.push("legendas ligadas"); }
+  if (/legenda\w* maior/.test(low)) { edl.captions.size = edl.captions.size === "sm" ? "md" : "lg"; done.push(`legenda ${edl.captions.size}`); }
+  if (/legenda\w* menor/.test(low)) { edl.captions.size = edl.captions.size === "lg" ? "md" : "sm"; done.push(`legenda ${edl.captions.size}`); }
+  if (/legenda\w* (no )?(centro|meio)/.test(low)) { edl.captions.position = "center"; done.push("legenda no centro"); }
+  if (/legenda\w* (embaixo|em baixo|abaixo|no rodap[eé])/.test(low)) { edl.captions.position = "bottom"; done.push("legenda embaixo"); }
+  if (/legenda\w* (em cima|no topo|acima)/.test(low)) { edl.captions.position = "top"; done.push("legenda em cima"); }
+
+  if (/sem m[uú]sica|sem trilha/.test(low)) { edl.audio.music = null; done.push("trilha desligada"); }
+  else if ((m = low.match(/(?:m[uú]sica|trilha)[^\d]{0,20}(\d{1,3})\s*%/))) { edl.audio.music = { volume: Math.min(1, Number(m[1]) / 100) }; done.push(`trilha ${m[1]}%`); }
+  if ((m = low.match(/(?:volume|[aá]udio) (?:do )?(?:v[ií]deo|original|fala)[^\d]{0,10}(\d{1,3})\s*%/))) { edl.audio.sourceVolume = Math.min(2, Number(m[1]) / 100); done.push(`áudio original ${m[1]}%`); }
+
+  if (/sem narra[çc][aã]o/.test(low)) { edl.audio.narration = null; done.push("narração removida"); }
+  else if ((m = text.match(/narra[çc][aã]o\s*[:=]\s*["“]?([^"”]+)/i))) { edl.audio.narration = { text: m[1].trim().slice(0, 2500), volume: 1, voiceId: edl.audio.narration?.voiceId }; done.push("narração definida"); }
+
+  void a;
+  if (!done.length) return null;
+  return { edl, reply: `Feito: ${done.join(", ")}.` };
+}
