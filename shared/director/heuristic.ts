@@ -59,7 +59,7 @@ export function motionPlan(b: Brief): Edl {
   if (brief) return briefPlan(b, brief);
   const all = (b.instructions || "").split(/\n|(?<=[.!?])\s+/).map((l) => l.trim().replace(/^[-•\d.)\s]+(?=\S)/, "").replace(/[.;]+$/, ""));
   const directives = all.filter((l) => /^(fundo|textura|emojis?|[ií]cones?)\b/i.test(l));
-  const lines = all.filter((l) => l && !directives.includes(l) && !/^(dura[çc][aã]o|narra[çc][aã]o|abertura|t[ií]tulo)\s*[:=]/i.test(l));
+  const lines = all.filter((l) => l && !directives.includes(l) && !/^(dura[çc][aã]o|narra[çc][aã]o|voz|abertura|t[ií]tulo)\s*[:=]/i.test(l));
   const p = parseBrief(b.instructions);
   const base = SCENE_SECONDS[b.style];
   const rep = newReport();

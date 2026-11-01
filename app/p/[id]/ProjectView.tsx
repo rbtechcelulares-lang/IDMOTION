@@ -5,6 +5,7 @@ import { STYLE_LABEL, type Style } from "@/shared/constants";
 import type { Edl } from "@/shared/edl";
 import { upload } from "@/components/upload";
 import { AiSelect } from "@/components/AiSelect";
+import { VOICES } from "@/components/voices";
 import { VIDEO_EXT } from "@/shared/constants";
 
 type Job = { id: string; type: string; status: string; progress: number; stage: string; attempts: number; max_attempts: number; error: string | null; output_path: string | null; edl_version: number | null; created_at: string; cancel_requested: boolean;
@@ -254,34 +255,30 @@ function NarrationPanel({ id, edl, disabled, onChange }: { id: string; edl: Edl;
           <span className={`absolute top-1 h-6 w-6 rounded-full bg-ink transition-all ${on ? "left-7" : "left-1 bg-paper"}`} />
         </button>
       </div>
-      {on && (
-        <div className="mt-3 space-y-2">
-          <div className="grid grid-cols-3 gap-2">
-            {(["animado", "neutro", "calmo"] as const).map((tn) => (
-              <button key={tn} type="button" disabled={disabled || saving} onClick={() => send(true, edl.audio.narration?.custom ? text : undefined, tn)}
-                className={`rounded-lg border py-2 text-sm capitalize transition ${ (edl.audio.narration?.tone ?? "animado") === tn ? "border-volt bg-volt text-ink font-semibold" : "border-line hover:border-volt"}`}>{tn}</button>
-            ))}
-          </div>
-          <select className="input !py-2 text-sm" value={edl.audio.narration?.voiceId ?? ""} disabled={disabled || saving}
-            onChange={(e) => send(true, edl.audio.narration?.custom ? text : undefined, undefined, e.target.value || "padrao")}>
-            {VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-          </select>
-          <textarea className="input !py-2 text-sm" rows={4} maxLength={2500} value={text} onChange={(e) => setText(e.target.value)} />
-          <button className="btn-ghost w-full" disabled={disabled || saving || text.trim() === edl.audio.narration?.text} onClick={() => send(true, text)}>Salvar texto da narração</button>
-          <p className="text-[11px] text-smoke">Precisa de ELEVENLABS_API_KEY e ELEVENLABS_VOICE_ID nos Secrets do GitHub. Áudio gerado é guardado em cache (mesmo texto não é cobrado de novo).</p>
+      <div className="mt-3 space-y-2">
+        <label className="label !mb-1">Voz</label>
+        <select className="input !py-2 text-sm" value={edl.audio.narration?.voiceId ?? ""} disabled={disabled || saving}
+          onChange={(e) => send(true, edl.audio.narration?.custom ? text : undefined, undefined, e.target.value || "padrao")}>
+          {VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+        </select>
+        <label className="label !mb-1">Tom</label>
+        <div className="grid grid-cols-3 gap-2">
+          {(["animado", "neutro", "calmo"] as const).map((tn) => (
+            <button key={tn} type="button" disabled={disabled || saving} onClick={() => send(true, edl.audio.narration?.custom ? text : undefined, tn)}
+              className={`rounded-lg border py-2 text-sm capitalize transition ${on && (edl.audio.narration?.tone ?? "animado") === tn ? "border-volt bg-volt text-ink font-semibold" : "border-line hover:border-volt"}`}>{tn}</button>
+          ))}
         </div>
-      )}
+        {!on && <p className="text-[11px] text-smoke">Escolher voz ou tom já liga a narração.</p>}
+        {on && (
+          <>
+            <textarea className="input !py-2 text-sm" rows={4} maxLength={2500} value={text} onChange={(e) => setText(e.target.value)} />
+            <button className="btn-ghost w-full" disabled={disabled || saving || text.trim() === edl.audio.narration?.text} onClick={() => send(true, text)}>Salvar texto da narração</button>
+            <p className="text-[11px] text-smoke">Precisa de ELEVENLABS_API_KEY nos Secrets do GitHub. Áudio gerado fica em cache (mesmo texto não é cobrado de novo).</p>
+          </>
+        )}
+      </div>
       {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
     </div>
   );
 }
 
-// Vozes PT-BR animadas da Voice Library da ElevenLabs (se a API recusar, adicione a voz em "My Voices" no site)
-const VOICES = [
-  { id: "", label: "Voz padrão (ELEVENLABS_VOICE_ID)" },
-  { id: "zhza6dIY7yb1xz5MKTvQ", label: "Nassif — vendedor persuasivo, ofertas (masc.)" },
-  { id: "plASsyS7JE6GCAvx9uIc", label: "Marcio — gancho viral, rápido (masc.)" },
-  { id: "NQmLEqxcRTkWYIYZSYod", label: "Matheus — energético (masc.)" },
-  { id: "Yu6uoFniEUcJhbrF7K1D", label: "Lari Diniz — anúncios animados (fem.)" },
-  { id: "zxk5LWW71eFBR9Cep81P", label: "André — review de tecnologia (masc.)" },
-];

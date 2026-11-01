@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { upload, videoDuration } from "@/components/upload";
 import { AiSelect } from "@/components/AiSelect";
+import { VOICES } from "@/components/voices";
 import { AUDIO_EXT, FORMATS, OBJECTIVES, STYLES, STYLE_LABEL, VIDEO_EXT } from "@/shared/constants";
 
 const STYLE_HINT = { cinematic: "Ritmo calmo, letterbox, tipografia elegante", viral: "Cortes rápidos, legenda grande palavra a palavra", premium: "Limpo, destaque de produto e preço" };
@@ -48,7 +49,7 @@ export function NewProjectForm({ maxUploadMb, maxDurationS, ai }: { maxUploadMb:
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: fd.get("name"), format, style, ai: fd.get("ai") || "auto", objective: fd.get("objective"), instructions: `${fd.get("instructions") || ""}${fd.get("narration") ? "\nnarração: auto" : ""}`.trim() }),
+        body: JSON.stringify({ name: fd.get("name"), format, style, ai: fd.get("ai") || "auto", objective: fd.get("objective"), instructions: `${fd.get("instructions") || ""}${fd.get("narration") ? `\nnarração: auto${fd.get("voice") ? `\nvoz: ${fd.get("voice")}` : ""}` : ""}`.trim() }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
@@ -113,6 +114,10 @@ export function NewProjectForm({ maxUploadMb, maxDurationS, ai }: { maxUploadMb:
         <input type="checkbox" name="narration" className="h-5 w-5 accent-[#FFE600]" />
         <span><span className="font-semibold">Narração ElevenLabs</span><span className="block text-xs text-smoke">O diretor escreve a narração a partir das cenas (dá para editar e desligar depois).</span></span>
       </label>
+      <div>
+        <label className="label">Voz da narração</label>
+        <select name="voice" className="input">{VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}</select>
+      </div>
       {err && <p className="text-sm text-red-400" role="alert">{err}</p>}
       {busy && (
         <div className="h-2 overflow-hidden rounded-full bg-line"><div className="h-full bg-volt transition-all" style={{ width: `${Math.round(progress! * 100)}%` }} /></div>
