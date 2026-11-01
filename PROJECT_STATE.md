@@ -5,7 +5,7 @@
 - Dados: Supabase (`supabase/migrations`); arquivos em DATA_DIR (`data/projects/<id>/`), caminhos relativos no banco.
 - Fila: tabela `jobs` + RPC `claim_job`; worker em `worker/src` (Docker: `docker compose up`), retry automático 2x, cancelamento.
 - Análise: ffprobe, cenas, fala/pausas, frames, loudness, transcrição ElevenLabs opcional.
-- Director: `shared/director` (Claude via SDK ou heurístico) + `knowledge.ts` (guia RBTech) + `textfix.ts` (revisor de texto); EDL zod em `shared/edl.ts`; chat cria versões com pai → desfazer.
+- Director: `shared/director` — cérebro criativo (Gemini/Claude/compatível OpenAI via `llm.ts`) + regras (`heuristic.ts`, `brief.ts`, `textfix.ts`, `knowledge.ts`, `trends.json`); EDL zod em `shared/edl.ts`.
 - Render: FFmpeg monta base (cortes/formato/mix/loudnorm + correção de ganho) → Remotion (ProRes 4444 alpha) → composição → QC.
 - Presets em `remotion/` (Overlay.tsx, MotionVideo.tsx p/ vídeo 100% motion, presets.ts).
 - Storage: `STORAGE=local` (disco), `s3` (Cloudflare R2, recomendado) ou `supabase`. Motor na nuvem: GitHub Actions (`worker.yml`, `WORKER_ONCE`). Guia: DEPLOY_IPHONE.md.

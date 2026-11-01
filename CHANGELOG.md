@@ -71,3 +71,6 @@
 
 ## Agente de tendências
 - `shared/director/trends.json` (validado com zod) alimenta o diretor: ganchos, chamadas, ideias e bpm das trilhas; `research/TENDENCIAS.md` com o histórico. Atualizado 2x/dia por uma rotina agendada.
+
+## Cérebro criativo com Gemini (grátis)
+- Diretor com IA trocável: Gemini (API compatível com OpenAI, padrão gemini-2.5-flash), Claude ou qualquer API compatível (Groq, Cloudflare…). A IA só planeja (entende pedido/briefing → EDL); a produção continua no motor (FFmpeg + Remotion). Rascunho por regras como ponto de partida e fallback; Status testa a IA.

@@ -38,7 +38,9 @@ jobs:
       S3_REGION: ${{ vars.S3_REGION || 'auto' }}
       RETENTION_DAYS: ${{ vars.RETENTION_DAYS || '2' }}
       MAX_DURATION_S: ${{ vars.MAX_DURATION_S || '600' }}
-      AI_MODEL: ${{ vars.AI_MODEL || 'claude-opus-5-5' }}
+      AI_PROVIDER: ${{ vars.AI_PROVIDER || '' }}
+      AI_MODEL: ${{ vars.AI_MODEL || '' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}

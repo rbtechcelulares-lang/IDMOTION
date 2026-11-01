@@ -4,6 +4,8 @@ import { Header } from "@/components/Header";
 import { db } from "@/lib/supabase";
 import { STORAGE_MODE } from "@/lib/storage";
 import { s3CorsCheck, s3Put, s3Remove, s3Size } from "@/shared/s3";
+import { getDirector } from "@/shared/director";
+import { LlmDirector } from "@/shared/director/llm";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,16 @@ export default async function Status() {
       return r.detail;
     }, 'No bucket idmotion → Settings → CORS Policy: [{"AllowedOrigins":["*"],"AllowedMethods":["GET","PUT","HEAD"],"AllowedHeaders":["*"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]'));
   }
+
+  const director = getDirector();
+  checks.push(director instanceof LlmDirector
+    ? await run(`Cérebro criativo (${director.name})`, async () => {
+        const t0 = Date.now();
+        const reply = await director.ask("Responda só com JSON.", [{ type: "text", text: 'Responda {"ok": true}' }]);
+        if (!/ok/i.test(reply)) throw new Error(`resposta inesperada: ${reply.slice(0, 80)}`);
+        return `respondeu em ${((Date.now() - t0) / 1000).toFixed(1)}s`;
+      }, "Confira GEMINI_API_KEY (aistudio.google.com) e AI_MODEL na Vercel; no GitHub, o secret GEMINI_API_KEY.")
+    : { name: "Cérebro criativo", ok: null, detail: "sem IA: diretor por regras", fix: "Adicione GEMINI_API_KEY (grátis em aistudio.google.com)." });
 
   const token = process.env.GITHUB_DISPATCH_TOKEN?.trim();
   const repo = process.env.GITHUB_REPO?.trim() || "rbtechcelulares-lang/IDMOTION";

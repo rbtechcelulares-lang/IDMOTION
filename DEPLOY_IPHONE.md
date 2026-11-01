@@ -21,6 +21,8 @@ Bucket → Settings → CORS Policy:
 2. Token para o app acordar o motor: github.com/settings/personal-access-tokens → Generate new token
    (fine-grained) → Only select repositories: IDMOTION → Permissions: **Contents: Read and write** → copie.
 
+Cérebro criativo (grátis): `GEMINI_API_KEY` (aistudio.google.com) na Vercel e nos Secrets do GitHub.
+
 ## 4. Vercel (o app do iPhone)
 Environment Variables: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `SETUP_CODE`,
 `STORAGE=s3`, `S3_ENDPOINT`, `S3_BUCKET=idmotion`, `S3_REGION=auto`, `S3_ACCESS_KEY_ID`,

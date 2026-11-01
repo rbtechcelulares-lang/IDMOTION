@@ -71,31 +71,63 @@ function extractJson(text: string): unknown {
   return JSON.parse(body);
 }
 
-export class ClaudeDirector implements Director {
+/** Parte de mensagem neutra (texto ou imagem JPEG) — cada provedor converte para o seu formato. */
+export type Part = { type: "text"; text: string } | { type: "image"; jpegBase64: string };
+/** Como falar com uma IA. O diretor (o "cérebro criativo") é o mesmo para qualquer provedor. */
+export type Asker = { name: string; ask(system: string, parts: Part[]): Promise<string> };
+
+/** Claude (Anthropic SDK). */
+export function anthropicAsker(apiKey: string, model = process.env.AI_MODEL || "claude-opus-5-5"): Asker {
+  const client = new Anthropic({ apiKey });
+  return {
+    name: `claude:${model}`,
+    async ask(system, parts) {
+      const content: Anthropic.Beta.BetaContentBlockParam[] = parts.map((p) =>
+        p.type === "text" ? { type: "text", text: p.text } : { type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.jpegBase64 } });
+      const res = await client.beta.messages.create({
+        model, max_tokens: 16000, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default",
+        output_config: { effort: (process.env.AI_EFFORT as "low" | "medium" | "high") || "medium" },
+        system, messages: [{ role: "user", content }],
+      });
+      if (res.stop_reason === "refusal") throw new Error("IA recusou o pedido");
+      return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+    },
+  };
+}
+
+/** Qualquer API compatível com OpenAI Chat Completions (Gemini, Groq, Cloudflare Workers AI, OpenRouter…). */
+export function openAiCompatAsker(o: { baseUrl: string; apiKey: string; model: string; label: string }): Asker {
+  const url = `${o.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  return {
+    name: `${o.label}:${o.model}`,
+    async ask(system, parts) {
+      const content = parts.map((p) => (p.type === "text" ? { type: "text", text: p.text } : { type: "image_url", image_url: { url: `data:image/jpeg;base64,${p.jpegBase64}` } }));
+      const call = async (json: boolean) => {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { authorization: `Bearer ${o.apiKey}`, "content-type": "application/json" },
+          body: JSON.stringify({ model: o.model, temperature: 0.7, messages: [{ role: "system", content: system }, { role: "user", content }], ...(json ? { response_format: { type: "json_object" } } : {}) }),
+          signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 90000)),
+        });
+        if (!res.ok) throw Object.assign(new Error(`${o.label} ${res.status}: ${(await res.text()).slice(0, 200)}`), { status: res.status });
+        const j = (await res.json()) as { choices?: { message?: { content?: string | { text?: string }[] } }[] };
+        const c = j.choices?.[0]?.message?.content;
+        return typeof c === "string" ? c : (c ?? []).map((x) => x.text ?? "").join("");
+      };
+      const wantsArray = /JSON array/.test(system); // json_object não aceita array na raiz
+      try { return await call(!wantsArray); } catch (e) { if ((e as { status?: number }).status === 400 && !wantsArray) return call(false); throw e; }
+    },
+  };
+}
+
+export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+
+/** Cérebro criativo: entende o pedido/briefing e devolve o plano (EDL). A produção fica com o motor. */
+export class LlmDirector implements Director {
   readonly name: string;
-  private client: Anthropic;
-  private model: string;
   private fallback = new HeuristicDirector();
-
-  constructor(apiKey: string, model = process.env.AI_MODEL || "claude-opus-5-5") {
-    this.client = new Anthropic({ apiKey });
-    this.model = model;
-    this.name = `claude:${model}`;
-  }
-
-  private async ask(system: string, content: Anthropic.Beta.BetaContentBlockParam[]): Promise<string> {
-    const res = await this.client.beta.messages.create({
-      model: this.model,
-      max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: (process.env.AI_EFFORT as "low" | "medium" | "high") || "medium" },
-      system,
-      messages: [{ role: "user", content }],
-    });
-    if (res.stop_reason === "refusal") throw new Error("IA recusou o pedido");
-    return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-  }
+  constructor(private asker: Asker) { this.name = asker.name; }
+  ask(system: string, parts: Part[]) { return this.asker.ask(system, parts); }
 
   /** Revisão "de IA" das legendas (mesma quantidade, mesmos tempos): corrige e limpa o que não faz sentido. */
   private async polishCaptions(edl: Edl): Promise<Edl> {
@@ -114,7 +146,9 @@ export class ClaudeDirector implements Director {
   async plan(a: Analysis, b: Brief, frames: { t: number; jpegBase64: string }[] = []): Promise<Edl> {
     if (!b.hasVideo) {
       const system = `Você é o AI Director do ID MOTION, criador de vídeos curtos de venda 100% animados. Responda SOMENTE com JSON válido.\n${MOTION_DOC}\n${STYLE_GUIDE}`;
-      const text = `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções:\n${b.instructions || "(nenhuma)"}\n\nGere o EDL motion.`;
+      // rascunho do diretor por regras: ponto de partida que a IA deve MELHORAR (não copiar às cegas)
+      const draft = await this.fallback.plan(a, b).then((d) => ({ theme: d.motion?.theme, scenes: d.motion?.scenes })).catch(() => null);
+      const text = `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções:\n${b.instructions || "(nenhuma)"}\n\nRASCUNHO (regras; melhore textos, ordem, ritmo, ícones e visual, sem inventar fatos):\n${JSON.stringify(draft)}\n\nGere o EDL motion.`;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const raw = extractJson(await this.ask(system, [{ type: "text", text }])) as Record<string, unknown>;
@@ -126,10 +160,10 @@ export class ClaudeDirector implements Director {
       return this.fallback.plan(a, b);
     }
     const system = `Você é o AI Director do ID MOTION, editor de vídeos curtos de venda. Responda SOMENTE com um JSON válido no formato abaixo.\n${SCHEMA_DOC}\n${STYLE_GUIDE}`;
-    const content: Anthropic.Beta.BetaContentBlockParam[] = [
-      ...frames.slice(0, 6).flatMap((f) => [
-        { type: "text" as const, text: `Frame em ${f.t.toFixed(1)}s:` },
-        { type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: f.jpegBase64 } },
+    const content: Part[] = [
+      ...frames.slice(0, 6).flatMap((f): Part[] => [
+        { type: "text", text: `Frame em ${f.t.toFixed(1)}s:` },
+        { type: "image", jpegBase64: f.jpegBase64 },
       ]),
       { type: "text", text: `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções: ${b.instructions || "(nenhuma)"}\n\nANÁLISE\n${summarize(a)}\n\nGere o EDL.` },
     ];
@@ -156,4 +190,9 @@ export class ClaudeDirector implements Director {
     EdlSchema.parse(parsed.edl);
     return { edl: await this.polishCaptions(finalizeEdl(parsed.edl, a)), reply: parsed.reply };
   }
+}
+
+/** Compatibilidade: diretor com Claude. */
+export class ClaudeDirector extends LlmDirector {
+  constructor(apiKey: string, model?: string) { super(anthropicAsker(apiKey, model)); }
 }

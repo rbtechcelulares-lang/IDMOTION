@@ -201,3 +201,37 @@ test("tendências: arquivo válido e usado pelo diretor", async () => {
   const { RBTECH_GUIDE } = await import("../shared/director/knowledge");
   assert.match(RBTECH_GUIDE, /TENDÊNCIAS DO NICHO/);
 });
+
+test("Gemini (API compatível com OpenAI): cérebro criativo devolve plano motion válido", async () => {
+  const { LlmDirector, openAiCompatAsker } = await import("../shared/director/llm");
+  const seen: { auth?: string; model?: string; json?: boolean; system?: string }[] = [];
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      const j = JSON.parse(body);
+      seen.push({ auth: req.headers.authorization, model: j.model, json: !!j.response_format, system: j.messages[0].content });
+      const edl = { mode: "motion", format: "9:16", preset: "cinematic", clips: [],
+        motion: { theme: { bg: "black", texture: "grain", floaters: { items: ["Smartphone"] } }, scenes: [
+          { kind: "title", text: "VOCÊ ESTÁ PREPARADO?", duration: 3 },
+          { kind: "price", text: "R$ 599", sub: "IPHONES A PARTIR DE", duration: 4, icon: "Smartphone" },
+          { kind: "feature", text: "É DIA *03/11* NA RBTECH!", duration: 4 },
+          { kind: "feature", text: "FIQUE LIGADO", sub: "RB TECH CELULARES", duration: 5 }] },
+        captions: { enabled: false, position: "bottom", size: "md", items: [] }, overlays: { intro: null, texts: [], price: null, cta: null },
+        audio: { sourceVolume: 1, music: null, narration: null, normalize: true } };
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: JSON.stringify(edl) } }] }));
+    });
+  }).listen(0);
+  const port = (server.address() as { port: number }).port;
+  const d = new LlmDirector(openAiCompatAsker({ baseUrl: `http://127.0.0.1:${port}/v1beta/openai`, apiKey: "chave-teste", model: "gemini-2.5-flash", label: "gemini" }));
+  const edl = await d.plan(a, { ...b, hasVideo: false, style: "cinematic", instructions: "Cena 1\n“VOCÊ ESTÁ PREPARADO?”" });
+  server.close();
+  assert.equal(d.name, "gemini:gemini-2.5-flash");
+  assert.equal(seen[0].auth, "Bearer chave-teste");
+  assert.equal(seen[0].json, true);
+  assert.match(seen[0].system!, /BRIEFING/);
+  assert.equal(edl.motion!.scenes.length, 4);
+  assert.equal(edl.motion!.scenes[1].text, "R$ 599");
+  assert.ok(edl.audio.music?.track, "sem trilha enviada → diretor coloca trilha gerada");
+});
