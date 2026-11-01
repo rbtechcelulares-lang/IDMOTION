@@ -192,3 +192,12 @@ DURAÇÃO: 15 a 20 segundos.`;
   assert.ok(Math.abs(edlDuration(e) - 17.5) < 0.3);
   assert.ok(!s.some((x) => /dire[çc][aã]o|tela escura|roteiro|headline/i.test(x.text)));
 });
+
+test("tendências: arquivo válido e usado pelo diretor", async () => {
+  const { TrendsSchema, TRENDS } = await import("../shared/director/trends");
+  const raw = (await import("../shared/director/trends.json")).default;
+  assert.ok(TrendsSchema.safeParse(raw).success, "trends.json inválido");
+  assert.ok(TRENDS.updatedAt.length > 0);
+  const { RBTECH_GUIDE } = await import("../shared/director/knowledge");
+  assert.match(RBTECH_GUIDE, /TENDÊNCIAS DO NICHO/);
+});

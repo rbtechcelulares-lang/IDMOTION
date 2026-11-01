@@ -68,3 +68,6 @@
 ## Diretor entende briefing completo
 - Prompt de campanha ("Cena 1", "Texto:", aspas, HEADLINE, DIREÇÃO CRIATIVA, DURAÇÃO) vira só os textos de tela; descrições viram decisões (fundo, duração alvo, ícones, marca no encerramento, tipografia amarela). Não inventa CTA quando o briefing já tem encerramento.
 - Revisor mantém CAIXA ALTA ("RB TECH" → "RBTECH"); Cinematic usa Poppins; textura granulada mais leve (ladrilho de ruído).
+
+## Agente de tendências
+- `shared/director/trends.json` (validado com zod) alimenta o diretor: ganchos, chamadas, ideias e bpm das trilhas; `research/TENDENCIAS.md` com o histórico. Atualizado 2x/dia por uma rotina agendada.

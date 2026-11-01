@@ -1,0 +1,31 @@
+{
+  "updatedAt": "2026-11-01",
+  "hooks": [
+    "Você está preparado?",
+    "Chegou o que você esperava",
+    "Olha o preço disso",
+    "Ninguém está falando disso",
+    "Seu iPhone antigo vale dinheiro aqui"
+  ],
+  "ctas": [
+    "Chama no WhatsApp",
+    "Fala com a gente no direct",
+    "Garanta o seu na RBTech",
+    "Toque no link e garanta o seu"
+  ],
+  "music": [
+    { "genre": "trap", "bpm": 142, "note": "batida eletrônica forte para ofertas e contagem regressiva" },
+    { "genre": "pop", "bpm": 108, "note": "lançamentos e novidades com clima alegre" },
+    { "genre": "light", "bpm": 86, "note": "premium, seminovo de confiança, institucional" }
+  ],
+  "sources": [
+    { "name": "YouTube Audio Library", "url": "https://studio.youtube.com", "license": "Gratuita; algumas faixas exigem atribuição", "notes": "Conferir a licença de cada faixa" },
+    { "name": "Pixabay Music", "url": "https://pixabay.com/music/", "license": "Pixabay Content License", "notes": "Uso comercial permitido; conferir restrições" },
+    { "name": "Free Music Archive", "url": "https://freemusicarchive.org", "license": "Varia (CC0, CC-BY…)", "notes": "Filtrar por licenças que permitem uso comercial" }
+  ],
+  "ideas": [
+    "Contagem regressiva para a data da campanha",
+    "Comparação antes/depois (aparelho antigo x novo)",
+    "Preço em destaque com contador animado"
+  ]
+}

@@ -1,4 +1,5 @@
 import type { Style } from "../constants";
+import { TRENDS } from "./trends";
 
 export type Genre = "trap" | "pop" | "light";
 export type Track = { genre: Genre; bpm: number; shift: number; seed: number };
@@ -19,7 +20,9 @@ export function chooseTrack(o: { style: Style; objective?: string; text?: string
 
 export function trackFor(genre: Genre, seed: string, bump = 0): Track {
   const h = hash(`${seed}#${bump}`);
-  const [lo, hi] = BPM_RANGE[genre];
+  // faixa de bpm: a das tendências (±6) quando houver, senão a padrão
+  const trend = TRENDS.music.find((m) => m.genre === genre);
+  const [lo, hi] = trend ? [Math.max(60, trend.bpm - 6), Math.min(180, trend.bpm + 6)] : BPM_RANGE[genre];
   return { genre, bpm: lo + (h % (hi - lo + 1)), shift: ((h >>> 8) % 7) - 3, seed: 1 + ((h >>> 16) % 97) };
 }
 

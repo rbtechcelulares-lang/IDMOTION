@@ -2,7 +2,9 @@
  * Conhecimento do diretor (vindo da skill RBTech). Entra no prompt do Claude e guia o diretor por regras.
  * Mude aqui para ajustar o "jeito RBTech" de editar.
  */
-export const RBTECH_GUIDE = `CONHECIMENTO RBTECH (loja de iPhones e celulares em Florianópolis/SC — Palhoça, São José e região)
+import { TRENDS, trendsForPrompt } from "./trends";
+
+export const RBTECH_GUIDE_BASE = `CONHECIMENTO RBTECH (loja de iPhones e celulares em Florianópolis/SC — Palhoça, São José e região)
 Marca: amarelo #FFD60A + preto #0F0F0F + branco, Poppins Bold, cantos arredondados. Escreva "RBTech" e "iPhone" (nunca "rbtec", "Iphone").
 Formato: reels 9:16 de venda de iPhone — direto, energético, informativo.
 Movimento: texto entra animado e fica parado; um elemento por vez, grande, coluna central. Cards de 1,2 a 2,2 s.
@@ -19,9 +21,10 @@ REVISÃO DE TEXTO (obrigatória, como um revisor humano):
 - Descarte letras soltas, palavras digitadas por engano, frases sem sentido, repetições e muletas ("é", "hum", "né", "então", "tipo").
 - Encurte para caber na tela (até ~8 palavras por card) sem perder o sentido nem os números.
 - Nunca troque números, preços ou condições ao corrigir.`;
+export const RBTECH_GUIDE = [RBTECH_GUIDE_BASE, trendsForPrompt()].filter(Boolean).join("\n");
 
 /** Chamadas finais variadas (escolhidas pelo nome do projeto para não repetir sempre a mesma). */
-export const CTA_OPTIONS = ["Chama no WhatsApp", "Fala com a gente no direct", "Garanta o seu na RBTech", "Vem pra RBTech", "Chama no direct e garanta o seu"];
+export const CTA_OPTIONS = [...new Set(["Chama no WhatsApp", "Fala com a gente no direct", "Garanta o seu na RBTech", "Vem pra RBTech", "Chama no direct e garanta o seu", ...TRENDS.ctas])];
 export function pickCta(seed: string): string {
   let h = 0;
   for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
