@@ -7,9 +7,11 @@ import { isUuid } from "@/lib/files";
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "id inválido" }, { status: 400 });
-  const { data: p } = await db().from("projects").select("source_path,status,files_deleted_at").eq("id", id).maybeSingle();
+  const { data: p } = await db().from("projects").select("source_path,status,files_deleted_at,instructions,name").eq("id", id).maybeSingle();
   if (p?.files_deleted_at) return NextResponse.json({ error: "Os vídeos deste projeto foram apagados (2 dias). Crie um novo projeto." }, { status: 410 });
-  if (!p?.source_path) return NextResponse.json({ error: "Envie o vídeo primeiro" }, { status: 409 });
+  if (!p) return NextResponse.json({ error: "não encontrado" }, { status: 404 });
+  // sem vídeo = vídeo 100% motion (precisa de instruções para virar cenas)
+  if (!p.source_path && !p.instructions?.trim()) return NextResponse.json({ error: "Sem vídeo: escreva as instruções (cada linha vira uma cena)" }, { status: 409 });
   const { data: active } = await db().from("jobs").select("id").eq("project_id", id).in("status", ["queued", "running"]).limit(1);
   if (active?.length) return NextResponse.json({ error: "Já existe um processamento em andamento" }, { status: 409 });
   const { data, error } = await db().from("jobs").insert({ project_id: id, type: "analyze" }).select("id").single();

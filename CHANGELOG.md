@@ -48,3 +48,6 @@
 
 ## Reenvio e exclusão
 - Projeto sem vídeo (upload falhou) permite reenviar pela própria tela; botão "Excluir projeto" apaga registro e arquivos.
+
+## Vídeo 100% Motion
+- Projeto sem vídeo vira vídeo 100% motion: cada linha das instruções vira uma cena (abertura, benefícios, preço, CTA), com trilha/narração. EDL `mode: "motion"` + `motion.scenes`; diretor por regras e Claude; chat (remover cena N, duração, preço, CTA, abertura, texto/cena, ritmo); render com fundo animado por preset (Viral, Premium, Cinematic).

@@ -2,13 +2,16 @@ import React from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { type Edl, edlDuration } from "../shared/edl";
 import { LOOK, YELLOW } from "./presets";
+import { MotionVideo } from "./MotionVideo";
 
 type P = { edl: Edl };
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const longestWord = (t: string) => Math.max(...t.split(/\s+/).map((w) => w.length));
 
 /** Camada transparente com legendas, textos, preço, abertura e CTA. Renderizada sobre o vídeo-base. */
-export const Overlay: React.FC<P> = ({ edl }) => {
+export const Overlay: React.FC<P> = ({ edl }) => (edl.mode === "motion" ? <MotionVideo edl={edl} /> : <VideoOverlay edl={edl} />);
+
+const VideoOverlay: React.FC<P> = ({ edl }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const t = frame / fps;

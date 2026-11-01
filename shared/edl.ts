@@ -14,12 +14,23 @@ const Timed = { start: z.number().min(0), end: z.number().positive() };
 
 export const CaptionSchema = z.object({ ...Timed, text: z.string().min(1).max(120) });
 
+export const SCENE_KINDS = ["title", "feature", "price", "cta"] as const;
+export const MotionSceneSchema = z.object({
+  kind: z.enum(SCENE_KINDS).default("feature"),
+  text: z.string().min(1).max(90),
+  sub: z.string().max(120).optional(),
+  duration: z.number().min(0.8).max(8).default(2.2),
+});
+
 export const EdlSchema = z.object({
   version: z.literal(1).default(1),
+  // video = edição do vídeo enviado · motion = vídeo 100% animado (sem vídeo-fonte)
+  mode: z.enum(["video", "motion"]).default("video"),
+  motion: z.object({ scenes: z.array(MotionSceneSchema).min(1).max(30) }).nullable().default(null),
   format: z.enum(FORMATS),
   preset: z.enum(STYLES),
   fps: z.literal(30).default(30),
-  clips: z.array(ClipSchema).min(1).max(200),
+  clips: z.array(ClipSchema).max(200).default([]),
   captions: z.object({
     enabled: z.boolean().default(true),
     position: z.enum(["bottom", "center", "top"]).default("bottom"),
@@ -39,21 +50,25 @@ export const EdlSchema = z.object({
     normalize: z.boolean().default(true),
   }),
   notes: z.string().max(500).default(""),
-});
+}).refine((e) => (e.mode === "motion" ? !!e.motion?.scenes.length : e.clips.length > 0), { message: "EDL precisa de clips (vídeo) ou cenas (motion)" });
 
 export type Edl = z.infer<typeof EdlSchema>;
 export type Clip = Edl["clips"][number];
 
 export const clipDuration = (c: Pick<Clip, "in" | "out" | "speed">) => (c.out - c.in) / (c.speed || 1);
-export const edlDuration = (e: Pick<Edl, "clips">) => e.clips.reduce((s, c) => s + clipDuration(c), 0);
+export const edlDuration = (e: { clips: Pick<Clip, "in" | "out" | "speed">[]; mode?: string; motion?: { scenes: { duration: number }[] } | null }) =>
+  e.mode === "motion" ? (e.motion?.scenes ?? []).reduce((s, x) => s + x.duration, 0) : e.clips.reduce((s, c) => s + clipDuration(c), 0);
 
 /** Valida e "conserta" o que for possível: limita clips à duração da fonte e overlays à timeline. */
 export function normalizeEdl(input: unknown, sourceDuration: number): Edl {
   const edl = EdlSchema.parse(input);
-  edl.clips = edl.clips
+  if (edl.mode === "motion") {
+    edl.clips = [];
+    edl.captions.items = [];
+  } else edl.clips = edl.clips
     .map((c) => ({ ...c, in: Math.max(0, c.in), out: Math.min(sourceDuration, c.out) }))
     .filter((c) => c.out - c.in >= 0.2);
-  if (!edl.clips.length) throw new Error("EDL sem clipes válidos dentro da duração da fonte");
+  if (edl.mode === "video" && !edl.clips.length) throw new Error("EDL sem clipes válidos dentro da duração da fonte");
   const total = edlDuration(edl);
   const clampT = <T extends { start: number; end: number }>(arr: T[]) =>
     arr.map((x) => ({ ...x, start: Math.max(0, x.start), end: Math.min(total, x.end) })).filter((x) => x.end - x.start >= 0.15);

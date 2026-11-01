@@ -92,3 +92,35 @@ async function fixLoudness(file: string, target = -14) {
   await run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-i", file, "-c:v", "copy", "-af", `volume=${(target - lufs).toFixed(2)}dB,alimiter=limit=0.89:level=false`, "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", tmp]);
   await fs.promises.rename(tmp, file);
 }
+
+/** Base do vídeo 100% motion: fundo preto (o Remotion pinta tudo por cima) + trilha/narração mixadas. */
+export async function buildMotionBase(edl: Edl, inp: { music?: string | null; narration?: string | null }, out: string, onProgress: (p: number) => void) {
+  const { width: W, height: H } = FORMAT_SIZE[edl.format];
+  const total = edlDuration(edl);
+  const args = ["-y", "-hide_banner", "-loglevel", "error", "-stats", "-stats_period", "0.5", "-f", "lavfi", "-i", `color=c=black:s=${W}x${H}:r=${edl.fps}:d=${f3(total)}`];
+  const f: string[] = [];
+  const mix: string[] = [];
+  let idx = 1;
+  if (edl.audio.music && inp.music) {
+    args.push("-stream_loop", "-1", "-i", inp.music);
+    const fade = Math.min(1.5, total / 4);
+    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=0:${f3(total)},volume=${edl.audio.music.volume.toFixed(3)},afade=t=in:d=0.3,afade=t=out:st=${f3(total - fade)}:d=${f3(fade)}[mus]`);
+    mix.push("[mus]");
+    idx++;
+  }
+  if (edl.audio.narration && inp.narration) {
+    args.push("-i", inp.narration);
+    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay=400|400,volume=${edl.audio.narration.volume.toFixed(3)},atrim=0:${f3(total)}[nar]`);
+    mix.push("[nar]");
+    idx++;
+  }
+  if (!mix.length) { f.push(`anullsrc=r=48000:cl=stereo,atrim=0:${f3(total)}[sil]`); mix.push("[sil]"); }
+  const mixed = mix.length > 1 ? `${mix.join("")}amix=inputs=${mix.length}:normalize=0:duration=longest` : `${mix[0]}anull`;
+  const norm = edl.audio.normalize && mix[0] !== "[sil]" ? ",loudnorm=I=-14:TP=-1.5:LRA=11" : "";
+  f.push(`${mixed}${norm},aresample=48000,apad,atrim=0:${f3(total)}[aout]`);
+  args.push("-filter_complex", f.join(";"), "-map", "0:v", "-map", "[aout]", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "14", "-pix_fmt", "yuv420p",
+    "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-t", f3(total), "-movflags", "+faststart", out);
+  await run(FFMPEG, args, { onLine: (l) => { const t = parseTime(l); if (t !== null) onProgress(Math.min(1, t / total)); } });
+  if (edl.audio.normalize && mix[0] !== "[sil]") await fixLoudness(out);
+  return total;
+}

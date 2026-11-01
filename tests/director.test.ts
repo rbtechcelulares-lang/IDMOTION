@@ -17,7 +17,7 @@ const a: Analysis = {
   speech: [{ start: 1.2, end: 3.8 }, { start: 13.4, end: 16.6 }, { start: 18.3, end: 23.3 }], words, transcript: "",
   transcriptProvider: "teste", frames: [], loudnessLufs: -20,
 };
-const b: Brief = { name: "iPhone 15 Pro", format: "9:16", style: "viral", objective: "Venda", instructions: "Preço R$ 4.299. CTA: Chama no direct. Duração 20s", hasMusic: false };
+const b: Brief = { name: "iPhone 15 Pro", format: "9:16", style: "viral", objective: "Venda", instructions: "Preço R$ 4.299. CTA: Chama no direct. Duração 20s", hasMusic: false, hasVideo: true };
 
 test("heurístico: remove trecho só de muleta, aplica preço/CTA/duração e legendas", async () => {
   const edl = await new HeuristicDirector().plan(a, b);
@@ -72,4 +72,23 @@ test("ClaudeDirector: valida JSON da IA e cai no heurístico se inválido", asyn
   const fb = await d.plan(a, b); // 2 respostas inválidas → heurístico
   assert.equal(fb.preset, "viral");
   server.close();
+});
+
+test("vídeo 100% motion: cada linha vira cena, preço e CTA detectados", async () => {
+  const { motionPlan } = await import("../shared/director/heuristic");
+  const edl = motionPlan({ name: "Campanha 04/11", format: "9:16", style: "viral", objective: "Lançamento", hasMusic: true, hasVideo: false,
+    instructions: "Iphones a partir de 499,90\nAte 1 ano de garantia nos semi-novos\nBrindes exclusivos\nE sorteio de perfums premium no grupo vip\nAcesse agora o grupo" });
+  const s = edl.motion!.scenes;
+  assert.equal(edl.mode, "motion");
+  assert.equal(s[0].kind, "title");
+  assert.equal(s.find((x) => x.kind === "price")?.text, "R$ 499,90");
+  assert.equal(s.find((x) => x.kind === "price")?.sub, "Iphones a partir de");
+  assert.equal(s[s.length - 1].kind, "cta");
+  assert.equal(s[s.length - 1].text, "Acesse agora o grupo");
+  assert.equal(s.filter((x) => x.kind === "feature").length, 3);
+  assert.ok(edl.audio.music);
+  const r = applyCommands(edl, "remover cena 2, duração 12s, cta: Entre no grupo VIP", a)!;
+  assert.equal(r.edl.motion!.scenes.length, s.length - 1);
+  assert.ok(Math.abs(edlDuration(r.edl) - 12) < 0.3);
+  assert.equal(r.edl.motion!.scenes.at(-1)!.text, "Entre no grupo VIP");
 });

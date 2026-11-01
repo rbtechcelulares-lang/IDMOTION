@@ -13,7 +13,7 @@ const getBundle = () =>
   (bundled ??= prebuilt && fs.existsSync(path.join(prebuilt, "index.html")) ? Promise.resolve(prebuilt) : bundle({ entryPoint: path.resolve(__dirname, "../../remotion/index.ts") }).catch((e) => { bundled = null; throw e; }));
 
 export const hasOverlay = (edl: Edl) =>
-  !!(edl.overlays.intro || edl.overlays.cta || edl.overlays.price || edl.overlays.texts.length || (edl.captions.enabled && edl.captions.items.length) || edl.preset === "cinematic");
+  edl.mode === "motion" || !!(edl.overlays.intro || edl.overlays.cta || edl.overlays.price || edl.overlays.texts.length || (edl.captions.enabled && edl.captions.items.length) || edl.preset === "cinematic");
 
 /** Renderiza a camada de motion (ProRes 4444 com alpha). */
 export async function renderOverlay(edl: Edl, out: string, onProgress: (p: number) => void, isCancelled: () => boolean) {

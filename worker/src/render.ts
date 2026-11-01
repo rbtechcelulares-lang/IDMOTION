@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { EdlSchema } from "../../shared/edl";
 import { Cancelled, db, projectDir } from "./env";
-import { buildBase } from "./engine";
+import { buildBase, buildMotionBase } from "./engine";
 import { composite, hasOverlay, renderOverlay } from "./overlay";
 import { killAll } from "./proc";
 import { runQc } from "./qc";
@@ -12,7 +12,7 @@ import type { Job, JobCtx } from "./jobs";
 
 export async function runRender(job: Job, ctx: JobCtx) {
   const { data: p } = await db.from("projects").select("*").eq("id", job.project_id).single();
-  if (!p?.source_path) throw Object.assign(new Error("projeto sem vídeo"), { fatal: true });
+  if (!p) throw Object.assign(new Error("projeto não encontrado"), { fatal: true });
   const version = job.edl_version ?? p.current_version;
   const { data: v } = await db.from("edl_versions").select("edl").eq("project_id", p.id).eq("version", version).single();
   if (!v) throw Object.assign(new Error(`EDL v${version} não encontrado`), { fatal: true });
@@ -39,10 +39,16 @@ export async function runRender(job: Job, ctx: JobCtx) {
   }
   if (edl.audio.music && !p.music_path) notes.push("Trilha ignorada: nenhum arquivo de trilha no projeto.");
 
-  const source = await guard(() => ensureLocal(p.source_path));
   const music = p.music_path ? await guard(() => ensureLocal(p.music_path)) : null;
   const base = path.join(dir, "base.mp4");
-  const duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)"), hasOverlay(edl)));
+  let duration: number;
+  if (edl.mode === "motion") {
+    duration = await guard(() => buildMotionBase(edl, { music, narration }, base, (x) => prog(0.05 + x * 0.1, "Trilha e mixagem (FFmpeg)")));
+  } else {
+    if (!p.source_path) throw Object.assign(new Error("projeto sem vídeo"), { fatal: true });
+    const source = await guard(() => ensureLocal(p.source_path));
+    duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)"), hasOverlay(edl)));
+  }
 
   const final = path.join(dir, "final.mp4");
   if (hasOverlay(edl)) {

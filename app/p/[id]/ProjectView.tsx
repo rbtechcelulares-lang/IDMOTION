@@ -63,7 +63,7 @@ export function ProjectView({ id }: { id: string }) {
           <div className="mb-2 flex flex-wrap items-center gap-2"><StatusBadge status={p.status} /><span className="text-xs text-smoke">{p.format} · {STYLE_LABEL[p.style]} · {p.objective}</span></div>
           <h1 className="text-3xl font-bold">{p.name}</h1>
           {p.error && <p className="mt-2 text-sm text-red-400" title={p.error}>{p.error.slice(0, 160)}{p.error.length > 160 ? "…" : ""}</p>}
-          {p.status === "created" && !active && <Reupload id={id} onDone={load} />}
+          {p.status === "created" && !active && !edl && <Reupload id={id} onDone={load} />}
           {p.status === "error" && !active && <button className="btn-ghost mt-3" disabled={busy} onClick={() => post(`/api/projects/${id}/analyze`)}>Analisar de novo</button>}
         </div>
 
@@ -84,7 +84,7 @@ export function ProjectView({ id }: { id: string }) {
 
         {analyzing && <Progress job={active!} onCancel={() => post(`/api/jobs/${active!.id}/cancel`)} />}
 
-        {p.analysis && (
+        {p.analysis && p.analysis.duration > 0 && (
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <Stat k="Duração" v={sec(p.analysis.duration)} /><Stat k="Fonte" v={`${p.analysis.width}x${p.analysis.height}`} />
             <Stat k="Cenas / falas" v={`${p.analysis.scenes} / ${p.analysis.speech}`} />
@@ -95,9 +95,16 @@ export function ProjectView({ id }: { id: string }) {
         {edl && (
           <div className="rounded-2xl border border-line bg-panel p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="label !mb-0">EDL · versão {p.current_version} · {sec(edl.clips.reduce((t, c) => t + (c.out - c.in) / (c.speed || 1), 0))}</h2>
+              <h2 className="label !mb-0">{edl.mode === "motion" ? "Motion" : "EDL"} · versão {p.current_version} · {sec(edl.mode === "motion" ? (edl.motion?.scenes ?? []).reduce((t, c) => t + c.duration, 0) : edl.clips.reduce((t, c) => t + (c.out - c.in) / (c.speed || 1), 0))}</h2>
               <span className="text-xs text-smoke">{STYLE_LABEL[edl.preset]} · {edl.format}</span>
             </div>
+            {edl.mode === "motion" && (
+              <ol className="mb-4 space-y-1 text-sm">
+                {edl.motion?.scenes.map((c, i) => (
+                  <li key={i} className="flex justify-between gap-2 border-b border-line/60 py-1"><span className="min-w-0 truncate"><span className="text-volt">#{i + 1}</span> {c.text}</span><span className="shrink-0 text-smoke">{{ title: "abertura", feature: "cena", price: "preço", cta: "CTA" }[c.kind]} · {sec(c.duration)}</span></li>
+                ))}
+              </ol>
+            )}
             <ol className="mb-4 space-y-1 text-sm">
               {edl.clips.map((c, i) => (
                 <li key={i} className="flex justify-between gap-2 border-b border-line/60 py-1"><span><span className="text-volt">#{i + 1}</span> {sec(c.in)} → {sec(c.out)}</span><span className="text-smoke">{c.speed !== 1 ? `${c.speed}x ` : ""}{c.zoom > 1 ? `zoom ${c.zoom}` : ""}</span></li>

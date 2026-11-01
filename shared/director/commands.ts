@@ -7,7 +7,7 @@ export const COMMAND_HELP = [
   "formato 9:16 | 16:9 | 1:1 | 4:5",
   "duração 20s",
   "mais rápido / mais lento",
-  "remover corte 3",
+  "remover corte 3 (ou: remover cena 2, no vídeo motion)",
   "preço R$ 4.299 / sem preço",
   "CTA: Chama no direct / sem CTA",
   "abertura: Novo iPhone / sem abertura",
@@ -33,15 +33,49 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
   m = low.match(/\b(9:16|16:9|1:1|4:5)\b/);
   if (m && FORMATS.includes(m[1] as Format)) { edl.format = m[1] as Format; done.push(`formato ${m[1]}`); }
 
-  if (/mais r[aá]pido|acelera|mais din[aâ]mico/.test(low)) { edl.clips.forEach((c) => (c.speed = Math.min(2, +((c.speed || 1) * 1.15).toFixed(2)))); done.push("ritmo +15%"); }
-  if (/mais lento|desacelera|mais calmo/.test(low)) { edl.clips.forEach((c) => (c.speed = Math.max(0.5, +((c.speed || 1) / 1.15).toFixed(2)))); done.push("ritmo -15%"); }
+  const motion = edl.mode === "motion" && edl.motion ? edl.motion.scenes : null;
+  if (motion) {
+    const scale = (k: number) => motion.forEach((x) => (x.duration = Math.max(0.8, Math.min(8, +(x.duration * k).toFixed(2)))));
+    if (/mais r[aá]pido|acelera|mais din[aâ]mico/.test(low)) { scale(1 / 1.15); done.push("ritmo +15%"); }
+    if (/mais lento|desacelera|mais calmo/.test(low)) { scale(1.15); done.push("ritmo -15%"); }
+    if ((m = low.match(/(?:remov|tir|apag)\w*\s+(?:a\s+)?(?:cena|card|tela)\s*(\d+)/))) {
+      const i = Number(m[1]) - 1;
+      if (i >= 0 && i < motion.length && motion.length > 1) { motion.splice(i, 1); done.push(`cena ${i + 1} removida`); }
+    }
+    if ((m = low.match(/dura[çc][aã]o\s*(?:de|para|=|:)?\s*(\d{1,3})\s*s?/))) {
+      scale(Math.max(3, Number(m[1])) / edlDuration(edl));
+      done.push(`duração ≈ ${edlDuration(edl).toFixed(1)}s`);
+    }
+    const setKind = (kind: "title" | "price" | "cta", text: string, sub?: string) => {
+      const sc = motion.find((x) => x.kind === kind);
+      if (sc) { sc.text = text; if (sub !== undefined) sc.sub = sub; }
+      else if (kind === "title") motion.unshift({ kind, text, duration: 2.4 });
+      else if (kind === "cta") motion.push({ kind, text, duration: 3 });
+      else motion.splice(Math.max(0, motion.length - 1), 0, { kind, text, sub, duration: 2.8 });
+    };
+    if ((m = text.match(/pre[çc]o\s*(?:para|:|=|de)?\s*(R\$\s?\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/i))) {
+      const value = m[1].startsWith("R$") ? m[1].replace(/\s+/, " ") : `R$ ${m[1]}`;
+      setKind("price", value); done.push(`preço ${value}`);
+    }
+    if (/sem pre[çc]o/.test(low)) { edl.motion!.scenes = motion.filter((x) => x.kind !== "price"); done.push("preço removido"); }
+    if ((m = text.match(/cta\s*[:=]\s*["“]?([^"”\n]+)/i))) { setKind("cta", m[1].trim().slice(0, 90)); done.push(`CTA "${m[1].trim()}"`); }
+    if ((m = text.match(/(?:abertura|t[ií]tulo)\s*[:=]\s*["“]?([^"”\n]+)/i))) { setKind("title", m[1].trim().slice(0, 90)); done.push(`abertura "${m[1].trim()}"`); }
+    if ((m = text.match(/\b(?:texto|cena|adicion\w*)\s*[:=]\s*["“]?([^"”\n]+)/i))) {
+      const at = motion.findIndex((x) => x.kind === "price" || x.kind === "cta");
+      motion.splice(at < 0 ? motion.length : at, 0, { kind: "feature", text: m[1].trim().slice(0, 90), duration: 2.4 });
+      done.push(`cena "${m[1].trim()}" adicionada`);
+    }
+  }
 
-  if ((m = low.match(/(?:remov|tir|corta|apag)\w*\s+(?:o\s+)?(?:corte|clipe|cena|trecho)\s*(\d+)/))) {
+  if (!motion && /mais r[aá]pido|acelera|mais din[aâ]mico/.test(low)) { edl.clips.forEach((c) => (c.speed = Math.min(2, +((c.speed || 1) * 1.15).toFixed(2)))); done.push("ritmo +15%"); }
+  if (!motion && /mais lento|desacelera|mais calmo/.test(low)) { edl.clips.forEach((c) => (c.speed = Math.max(0.5, +((c.speed || 1) / 1.15).toFixed(2)))); done.push("ritmo -15%"); }
+
+  if (!motion && (m = low.match(/(?:remov|tir|corta|apag)\w*\s+(?:o\s+)?(?:corte|clipe|cena|trecho)\s*(\d+)/))) {
     const i = Number(m[1]) - 1;
     if (i >= 0 && i < edl.clips.length && edl.clips.length > 1) { edl.clips.splice(i, 1); done.push(`corte ${i + 1} removido`); }
   }
 
-  if ((m = low.match(/dura[çc][aã]o\s*(?:de|para|=|:)?\s*(\d{1,3})\s*s?/))) {
+  if (!motion && (m = low.match(/dura[çc][aã]o\s*(?:de|para|=|:)?\s*(\d{1,3})\s*s?/))) {
     const target = Math.max(3, Number(m[1]));
     const clips: Edl["clips"] = [];
     let t = 0;
@@ -56,7 +90,8 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
     done.push(`duração ≈ ${edlDuration(edl).toFixed(1)}s`);
   }
 
-  if (/sem pre[çc]o|remov\w* (o )?pre[çc]o/.test(low)) { edl.overlays.price = null; done.push("preço removido"); }
+  if (motion) { /* preço/CTA/abertura/texto já tratados nas cenas */ }
+  else if (/sem pre[çc]o|remov\w* (o )?pre[çc]o/.test(low)) { edl.overlays.price = null; done.push("preço removido"); }
   else if ((m = text.match(/pre[çc]o\s*(?:para|:|=|de)?\s*(R\$\s?\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/i))) {
     const value = m[1].startsWith("R$") ? m[1].replace(/\s+/, " ") : `R$ ${m[1]}`;
     const d = edlDuration(edl);
@@ -65,13 +100,15 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
     done.push(`preço ${value}`);
   }
 
-  if (/sem cta|remov\w* (o )?cta/.test(low)) { edl.overlays.cta = null; done.push("CTA removido"); }
+  if (motion) { /* idem */ }
+  else if (/sem cta|remov\w* (o )?cta/.test(low)) { edl.overlays.cta = null; done.push("CTA removido"); }
   else if ((m = text.match(/cta\s*[:=]\s*["“]?([^"”\n]+)/i))) { edl.overlays.cta = { duration: edl.overlays.cta?.duration ?? 3, text: m[1].trim().slice(0, 60) }; done.push(`CTA "${m[1].trim()}"`); }
 
-  if (/sem abertura|remov\w* (a )?abertura/.test(low)) { edl.overlays.intro = null; done.push("abertura removida"); }
+  if (motion) { /* idem */ }
+  else if (/sem abertura|remov\w* (a )?abertura/.test(low)) { edl.overlays.intro = null; done.push("abertura removida"); }
   else if ((m = text.match(/(?:abertura|t[ií]tulo)\s*[:=]\s*["“]?([^"”\n]+)/i))) { edl.overlays.intro = { duration: edl.overlays.intro?.duration ?? 2.2, sub: edl.overlays.intro?.sub, text: m[1].trim().slice(0, 60) }; done.push(`abertura "${m[1].trim()}"`); }
 
-  if ((m = text.match(/\btexto\s*[:=]\s*["“]?([^"”\n]+)/i))) {
+  if (!motion && (m = text.match(/\btexto\s*[:=]\s*["“]?([^"”\n]+)/i))) {
     const d = edlDuration(edl);
     const start = Math.min(d - 1, (edl.overlays.intro?.duration ?? 0) + 0.3);
     edl.overlays.texts.push({ start, end: Math.min(d, start + 3), text: m[1].trim().slice(0, 80), position: "top" });

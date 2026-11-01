@@ -22,6 +22,13 @@ const SCHEMA_DOC = `EDL JSON (tempos em segundos; clips usam o tempo do vídeo-f
 }
 Regras: captions.items fica vazio (o sistema gera a partir da transcrição). Clipes em ordem narrativa, sem pausas, muletas ("é", "hum", "então") ou repetições. Não invente preço: use só o que estiver nas instruções/transcrição. music só se hasMusic=true.`;
 
+const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
+{"mode":"motion","format":...,"preset":...,"clips":[],"motion":{"scenes":[{"kind":"title"|"feature"|"price"|"cta","text":string<=90,"sub"?:string<=120,"duration":0.8-8}]},
+ "captions":{"enabled":false,"position":"bottom","size":"md","items":[]},"overlays":{"intro":null,"texts":[],"price":null,"cta":null},
+ "audio":{"sourceVolume":1,"music":{"volume":0.9}|null,"narration":{"text":string,"volume":1}|null,"normalize":true},"notes":string}
+Regras: 1ª cena "title", última "cta". Textos curtos e fortes (até ~8 palavras); em "price" o text é o valor ("R$ 499,90") e sub o contexto ("iPhones a partir de").
+Use só informações das instruções. Duração total típica 12-30s. music só se hasMusic=true.`;
+
 const STYLE_GUIDE = `Estilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;
 
 function summarize(a: Analysis) {
@@ -70,6 +77,19 @@ export class ClaudeDirector implements Director {
   }
 
   async plan(a: Analysis, b: Brief, frames: { t: number; jpegBase64: string }[] = []): Promise<Edl> {
+    if (!b.hasVideo) {
+      const system = `Você é o AI Director do ID MOTION, criador de vídeos curtos de venda 100% animados. Responda SOMENTE com JSON válido.\n${MOTION_DOC}\n${STYLE_GUIDE}`;
+      const text = `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções:\n${b.instructions || "(nenhuma)"}\n\nGere o EDL motion.`;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const raw = extractJson(await this.ask(system, [{ type: "text", text }])) as Record<string, unknown>;
+          return finalizeEdl({ ...raw, mode: "motion", clips: [], format: b.format }, a);
+        } catch (e) {
+          console.warn(`[director] motion tentativa ${attempt + 1} inválida:`, (e as Error).message);
+        }
+      }
+      return this.fallback.plan(a, b);
+    }
     const system = `Você é o AI Director do ID MOTION, editor de vídeos curtos de venda. Responda SOMENTE com um JSON válido no formato abaixo.\n${SCHEMA_DOC}\n${STYLE_GUIDE}`;
     const content: Anthropic.Beta.BetaContentBlockParam[] = [
       ...frames.slice(0, 6).flatMap((f) => [
@@ -95,7 +115,7 @@ export class ClaudeDirector implements Director {
     const local = await this.fallback.edit(edl, instruction, a);
     if (local) return local;
     const slim = { ...edl, captions: { ...edl.captions, items: [] } };
-    const system = `Você é o AI Director do ID MOTION. O usuário pede alterações em um EDL. Responda SOMENTE com JSON: {"reply": "resumo curto em português do que mudou", "edl": <EDL completo>}.\n${SCHEMA_DOC}\n${STYLE_GUIDE}`;
+    const system = `Você é o AI Director do ID MOTION. O usuário pede alterações em um EDL${edl.mode === "motion" ? " de vídeo 100% motion (edite motion.scenes)" : ""}. Responda SOMENTE com JSON: {"reply": "resumo curto em português do que mudou", "edl": <EDL completo>}.\n${edl.mode === "motion" ? MOTION_DOC : SCHEMA_DOC}\n${STYLE_GUIDE}`;
     const text = `BRIEF: ${b.name} / ${b.objective} / ${b.instructions}\nANÁLISE\n${summarize(a)}\n\nEDL ATUAL\n${JSON.stringify(slim)}\n\nPEDIDO: ${instruction}`;
     const parsed = z.object({ reply: z.string().max(600), edl: z.unknown() }).parse(extractJson(await this.ask(system, [{ type: "text", text }])));
     EdlSchema.parse(parsed.edl);

@@ -24,6 +24,7 @@ export type Brief = {
   objective: string;
   instructions: string;
   hasMusic: boolean;
+  hasVideo: boolean; // false = vídeo 100% motion
 };
 
 export type EditResult = { edl: Edl; reply: string };

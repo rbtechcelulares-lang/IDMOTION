@@ -24,7 +24,7 @@ export async function saveVersion(id: string, edl: Edl, parent: number | null, s
 
 export const briefOf = (p: Record<string, unknown>): Brief => ({
   name: p.name as string, format: p.format as Brief["format"], style: p.style as Brief["style"],
-  objective: p.objective as string, instructions: p.instructions as string, hasMusic: !!p.music_path,
+  objective: p.objective as string, instructions: p.instructions as string, hasMusic: !!p.music_path, hasVideo: !!p.source_path,
 });
 export const analysisOf = (p: Record<string, unknown>) => p.analysis as Analysis;
 

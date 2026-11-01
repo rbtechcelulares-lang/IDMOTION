@@ -38,8 +38,9 @@ export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: num
     const fd = new FormData(e.currentTarget);
     const video = fd.get("video") as File;
     const music = fd.get("music") as File;
-    const problem = await checkVideo(video?.size ? video : undefined);
-    if (problem) return setErr(problem);
+    const hasVideo = !!video?.size;
+    if (hasVideo) { const problem = await checkVideo(video); if (problem) return setErr(problem); }
+    else if (!String(fd.get("instructions") || "").trim()) return setErr("Sem vídeo, o diretor cria um vídeo 100% motion: escreva as instruções (cada linha vira uma cena).");
     if (music?.size && !AUDIO_EXT.includes(music.name.slice(music.name.lastIndexOf(".")).toLowerCase())) return setErr(`Trilha: use ${AUDIO_EXT.join(", ")}.`);
     setProgress(0);
     try {
@@ -50,7 +51,7 @@ export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: num
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
-      await upload(body.id, "source", video, (p) => setProgress(p * (music?.size ? 0.9 : 1)));
+      if (hasVideo) await upload(body.id, "source", video, (p) => setProgress(p * (music?.size ? 0.9 : 1)));
       if (music?.size) await upload(body.id, "music", music, (p) => setProgress(0.9 + p * 0.1));
       await fetch(`/api/projects/${body.id}/analyze`, { method: "POST" });
       window.location.assign(`/p/${body.id}`);
@@ -64,9 +65,9 @@ export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: num
   return (
     <form onSubmit={submit} className="space-y-6">
       <div>
-        <label className="label">Vídeo bruto *</label>
-        <input name="video" type="file" accept={VIDEO_EXT.join(",") + ",video/*"} onChange={onFile} required className="input file:mr-4 file:rounded-md file:border-0 file:bg-volt file:px-3 file:py-1.5 file:font-semibold file:text-ink" />
-        <p className="mt-1 text-xs text-smoke">{fileInfo || `${VIDEO_EXT.join(" ")} · até ${maxUploadMb} MB · até ${Math.round(maxDurationS / 60)} min`}</p>
+        <label className="label">Vídeo bruto (opcional)</label>
+        <input name="video" type="file" accept={VIDEO_EXT.join(",") + ",video/*"} onChange={onFile} className="input file:mr-4 file:rounded-md file:border-0 file:bg-volt file:px-3 file:py-1.5 file:font-semibold file:text-ink" />
+        <p className="mt-1 text-xs text-smoke">{fileInfo || `${VIDEO_EXT.join(" ")} · até ${maxUploadMb} MB · até ${Math.round(maxDurationS / 60)} min · sem vídeo = vídeo 100% motion`}</p>
       </div>
       <div>
         <label className="label">Nome do projeto *</label>
