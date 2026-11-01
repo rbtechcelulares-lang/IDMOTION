@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { Readable } from "node:stream";
 import { db } from "@/lib/supabase";
 import { abs, isUuid } from "@/lib/files";
+import { STORAGE_MODE, signedDownloadUrl } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -12,10 +13,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!isUuid(id)) return NextResponse.json({ error: "id inválido" }, { status: 400 });
   const { data: job } = await db().from("jobs").select("output_path,status,project_id,projects(name)").eq("id", id).maybeSingle();
   if (!job?.output_path || job.status !== "done") return NextResponse.json({ error: "Arquivo indisponível" }, { status: 404 });
+  const name0 = String((job.projects as { name?: string } | null)?.name || "idmotion").replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "_") || "idmotion";
+  if (STORAGE_MODE === "supabase") {
+    const inline0 = new URL(req.url).searchParams.has("inline");
+    return NextResponse.redirect(await signedDownloadUrl(job.output_path, inline0 ? undefined : `${name0}.mp4`), 302);
+  }
   const file = abs(job.output_path);
   const stat = await fs.promises.stat(file).catch(() => null);
   if (!stat) return NextResponse.json({ error: "Arquivo não encontrado no disco" }, { status: 404 });
-  const name = String((job.projects as { name?: string } | null)?.name || "idmotion").replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "_") || "idmotion";
+  const name = name0;
   const inline = new URL(req.url).searchParams.has("inline");
   const headers: Record<string, string> = {
     "content-type": "video/mp4",

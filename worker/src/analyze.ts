@@ -1,15 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
-import { abs, db, projectDir, rel } from "./env";
+import { db, projectDir, rel } from "./env";
 import { detectScenes, detectSilences, extractAudio, extractFrames, loudness, probe } from "./media";
 import { getTranscriber } from "./transcribe";
+import { ensureLocal, store } from "./storage";
 import { getDirector, type Analysis, type Brief } from "../../shared/director";
 import type { Job, JobCtx } from "./jobs";
 
 export async function runAnalyze(job: Job, ctx: JobCtx) {
   const { data: p, error } = await db.from("projects").select("*").eq("id", job.project_id).single();
   if (error || !p?.source_path) throw new Error("projeto sem vídeo");
-  const src = abs(p.source_path);
+  const src = await ensureLocal(p.source_path);
   const dir = projectDir(p.id);
   const maxDur = Number(process.env.MAX_DURATION_S || 600);
 
@@ -25,6 +26,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   const lufs = meta.hasAudio ? await loudness(src) : null;
   await ctx.progress(0.5, "Extraindo frames", true);
   const frames = await extractFrames(src, meta.duration, path.join(dir, "frames"));
+  await Promise.all(frames.map((f) => store(f.file, "image/jpeg")));
 
   let words: Analysis["words"] = null;
   const tr = getTranscriber();

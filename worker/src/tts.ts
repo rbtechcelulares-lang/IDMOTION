@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, abs, db, rel } from "./env";
+import { DATA_DIR, db } from "./env";
+import { ensureLocal, store } from "./storage";
 
 /** Narração ElevenLabs com cache por hash (texto+voz+modelo). Retorna null se não configurado. */
 export async function narrationFile(text: string, voiceId?: string): Promise<{ file: string | null; note?: string }> {
@@ -12,7 +13,10 @@ export async function narrationFile(text: string, voiceId?: string): Promise<{ f
   const hash = crypto.createHash("sha256").update(`${model}|${voice}|${text}`).digest("hex");
 
   const { data: hit } = await db.from("tts_cache").select("path").eq("hash", hash).maybeSingle();
-  if (hit && fs.existsSync(abs(hit.path))) return { file: abs(hit.path), note: "Narração reaproveitada do cache." };
+  if (hit) {
+    const cached = await ensureLocal(hit.path).catch(() => null);
+    if (cached && fs.existsSync(cached)) return { file: cached, note: "Narração reaproveitada do cache." };
+  }
 
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
     method: "POST",
@@ -23,6 +27,6 @@ export async function narrationFile(text: string, voiceId?: string): Promise<{ f
   const file = path.join(DATA_DIR, "tts", `${hash}.mp3`);
   await fs.promises.mkdir(path.dirname(file), { recursive: true });
   await fs.promises.writeFile(file, Buffer.from(await res.arrayBuffer()));
-  await db.from("tts_cache").upsert({ hash, path: rel(file) });
+  await db.from("tts_cache").upsert({ hash, path: await store(file, "audio/mpeg") });
   return { file, note: "Narração gerada (ElevenLabs)." };
 }

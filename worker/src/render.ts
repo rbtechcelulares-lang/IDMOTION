@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { EdlSchema } from "../../shared/edl";
-import { Cancelled, abs, db, projectDir, rel } from "./env";
+import { Cancelled, db, projectDir } from "./env";
 import { buildBase } from "./engine";
 import { composite, hasOverlay, renderOverlay } from "./overlay";
 import { killAll } from "./proc";
 import { runQc } from "./qc";
 import { narrationFile } from "./tts";
+import { STORAGE_MODE, ensureLocal, store } from "./storage";
 import type { Job, JobCtx } from "./jobs";
 
 export async function runRender(job: Job, ctx: JobCtx) {
@@ -38,8 +39,10 @@ export async function runRender(job: Job, ctx: JobCtx) {
   }
   if (edl.audio.music && !p.music_path) notes.push("Trilha ignorada: nenhum arquivo de trilha no projeto.");
 
+  const source = await guard(() => ensureLocal(p.source_path));
+  const music = p.music_path ? await guard(() => ensureLocal(p.music_path)) : null;
   const base = path.join(dir, "base.mp4");
-  const duration = await guard(() => buildBase(edl, { source: abs(p.source_path), hasAudio: !!p.analysis?.hasAudio, music: p.music_path ? abs(p.music_path) : null, narration }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)")));
+  const duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)")));
 
   const final = path.join(dir, "final.mp4");
   if (hasOverlay(edl)) {
@@ -58,6 +61,9 @@ export async function runRender(job: Job, ctx: JobCtx) {
     await db.from("jobs").update({ qc }).eq("id", job.id);
     throw new Error(`QC reprovado: ${qc.checks.filter((c) => !c.ok && c.severity === "error").map((c) => `${c.name} (${c.value})`).join(", ")}`);
   }
+  await prog(0.98, "Enviando arquivo final", true);
+  const key = await guard(() => store(final, "video/mp4"));
+  if (STORAGE_MODE === "supabase") await fs.promises.rm(dir, { recursive: true, force: true });
   await db.from("projects").update({ status: "done", error: null, updated_at: new Date().toISOString() }).eq("id", p.id);
-  return { job: { output_path: rel(final), qc, edl_version: version } };
+  return { job: { output_path: key, qc, edl_version: version } };
 }

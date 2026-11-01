@@ -8,4 +8,5 @@
 - Director: `shared/director` (Claude via SDK ou heurístico); EDL zod em `shared/edl.ts`; chat cria versões com pai → desfazer.
 - Render: FFmpeg monta base (cortes/formato/mix/loudnorm + correção de ganho) → Remotion (ProRes 4444 alpha) → composição → QC.
 - Presets em `remotion/` (Overlay.tsx, presets.ts).
-- Pendências: imagem Docker não construída aqui (rede); chaves reais de IA/ElevenLabs não testadas.
+- Storage: `STORAGE=local` (disco) ou `supabase` (bucket media; Vercel + worker no Railway). Guia: DEPLOY_IPHONE.md.
+- Pendências: imagem Docker não construída aqui (rede); chaves reais de IA/ElevenLabs e deploy real ainda não testados.

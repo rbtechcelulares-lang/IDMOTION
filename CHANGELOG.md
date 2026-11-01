@@ -29,3 +29,7 @@
 
 ## M8 — Áudio
 - Narração ElevenLabs opcional com cache por hash (`tts_cache`); sem chave o vídeo sai com o áudio original.
+
+## Nuvem (iPhone sem PC)
+- `STORAGE=supabase`: upload direto do navegador para o Supabase Storage (URL assinada), worker baixa/sobe do bucket, download e frames por link assinado.
+- `railway.json` para o worker, `supabase/setup_nuvem.sql`, guia `DEPLOY_IPHONE.md`. Modo local continua funcionando.

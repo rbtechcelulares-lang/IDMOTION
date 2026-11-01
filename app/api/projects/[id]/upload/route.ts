@@ -6,7 +6,9 @@ import { pipeline } from "node:stream/promises";
 import { db } from "@/lib/supabase";
 import { isAuthed } from "@/lib/auth";
 import { isUuid, probeDuration, projectDir, rel } from "@/lib/files";
-import { AUDIO_EXT, AUDIO_MIME, VIDEO_EXT, VIDEO_MIME, limits } from "@/shared/constants";
+import { limits } from "@/shared/constants";
+import { checkUpload } from "@/lib/upload";
+import { STORAGE_MODE } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -19,16 +21,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { data: project } = await db().from("projects").select("id,status").eq("id", id).maybeSingle();
   if (!project) return NextResponse.json({ error: "projeto não encontrado" }, { status: 404 });
 
+  if (STORAGE_MODE !== "local") return NextResponse.json({ error: "Use o upload direto (STORAGE=supabase)" }, { status: 400 });
   const name = decodeURIComponent(req.headers.get("x-filename") || "");
-  const ext = path.extname(name).toLowerCase();
   const mime = (req.headers.get("content-type") || "").split(";")[0];
-  const [exts, mimes] = kind === "source" ? [VIDEO_EXT, VIDEO_MIME] : [AUDIO_EXT, AUDIO_MIME];
-  if (!exts.includes(ext) || (mime && mime !== "application/octet-stream" && !mimes.includes(mime))) {
-    return NextResponse.json({ error: `Tipo não suportado. Use: ${exts.join(", ")}` }, { status: 415 });
-  }
+  const check = checkUpload(kind, name, mime, Number(req.headers.get("content-length") || 0));
+  if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
+  const ext = check.ext;
   const { maxUploadMb, maxDurationS, minDurationS } = limits();
   const max = maxUploadMb * 1024 * 1024;
-  if (Number(req.headers.get("content-length") || 0) > max) return NextResponse.json({ error: `Arquivo acima de ${maxUploadMb} MB` }, { status: 413 });
   if (!req.body) return NextResponse.json({ error: "corpo vazio" }, { status: 400 });
 
   const dir = projectDir(id);

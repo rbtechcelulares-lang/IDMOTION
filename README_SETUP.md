@@ -23,5 +23,5 @@ No iPhone: abra no Safari → Compartilhar → "Adicionar à Tela de Início".
 - App: `npm install` e `npm run dev` (produção: `npm run build && npm start`).
 
 **Religar outro dia:** Docker aberto → `npx supabase start` → `docker compose up -d` → `npm run dev -- -H 0.0.0.0`.
-Supabase na nuvem: rode `supabase/migrations/*.sql` no SQL Editor e use URL + service_role key.
+Só no iPhone (sem PC): veja `DEPLOY_IPHONE.md`.
 Testes: `npm test`.
