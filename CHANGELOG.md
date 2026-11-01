@@ -103,3 +103,9 @@
 ## Efeitos sonoros e transições (skill RBTech)
 - 18 efeitos sintetizados portados da skill (whoosh, wipe, slam, price, approve, card, beep, unlock, typing, send, location, device, riser, hit, tick, boom, pop, shimmer), ligados ao significado da cena e às trocas; sem custo por vídeo. Também nos vídeos com fala (whoosh nos cortes, impacto no preço, riser+hit no CTA).
 - Transições: varredura amarela (lr/rl/tb/bt), corte seco com flash e zoom de entrada; o diretor mistura duas por vídeo (preço com flash, CTA com zoom). Chat: "sem efeitos", "efeitos mais baixos", "transições varredura|flash|zoom|suave", "transição flash na cena 3".
+
+## Vídeo com filmagem real — visual novo
+- Abertura e chamada final viram cards de motion em tela cheia (fundos da biblioteca, iPhones 3D no CTA), com varredura na entrada/saída.
+- Textos sobre a filmagem 2–3× maiores, palavra a palavra, destaque automático (preço/data/VIP), emoji temático e escurecimento embaixo para leitura.
+- Preço em adesivo amarelo grande com brilho e flash; CTA sempre cabe na largura.
+- Tomadas longas ganham jump zoom (aberto/fechado) sem mudar o tempo; efeitos sonoros nos textos, preço, abertura e CTA.

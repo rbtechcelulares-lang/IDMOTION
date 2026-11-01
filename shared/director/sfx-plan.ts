@@ -44,11 +44,21 @@ export function planSfx(edl: Edl): SfxCue[] {
     });
     return cues;
   }
-  // vídeo com fala: whoosh nos cortes, impacto no preço, riser + hit na chamada final
+  // vídeo real: whoosh só em corte de verdade (pulo no tempo), "pop" nos jump zooms, sons nos textos, impacto no preço, riser + hit na chamada
   let t = 0;
-  edl.clips.forEach((c, i) => { if (i > 0) cues.push({ name: i % 3 === 0 ? "wipe" : "whoosh", t: Math.max(0, t - 0.12), gain: 0.4 }); t += clipDuration(c); });
+  edl.clips.forEach((c, i) => {
+    if (i > 0) {
+      const jump = Math.abs(c.in - edl.clips[i - 1].out) > 0.05;
+      if (jump) cues.push({ name: i % 3 === 0 ? "wipe" : "whoosh", t: Math.max(0, t - 0.12), gain: 0.4 });
+      else if (c.zoom !== edl.clips[i - 1].zoom) cues.push({ name: "pop", t, gain: 0.25 });
+    }
+    t += clipDuration(c);
+  });
   const total = edlDuration(edl);
-  if (edl.overlays.price) cues.push({ name: "price", t: edl.overlays.price.start + 0.05, gain: 0.8 });
-  if (edl.overlays.cta) { const ct = total - edl.overlays.cta.duration; cues.push({ name: "riser", t: Math.max(0, ct - 0.45), gain: 0.6 }); cues.push({ name: "hit", t: ct, gain: 0.8 }); }
+  const o = edl.overlays;
+  if (o.intro) { cues.push({ name: "shimmer", t: 0.05, gain: 0.5 }); cues.push({ name: "wipe", t: Math.max(0, Math.min(o.intro.duration, 2.4) - 0.2), gain: 0.7 }); }
+  for (const x of o.texts) { const sem = semantic(x.text); cues.push({ name: sem ?? "pop", t: x.start + 0.05, gain: sem ? 0.6 : 0.45 }); }
+  if (o.price) { cues.push({ name: "slam", t: o.price.start, gain: 0.6 }); cues.push({ name: "price", t: o.price.start + 0.08, gain: 0.85 }); }
+  if (o.cta) { const ct = total - o.cta.duration; cues.push({ name: "riser", t: Math.max(0, ct - 0.45), gain: 0.6 }); cues.push({ name: "wipe", t: Math.max(0, ct - 0.2), gain: 0.6 }); cues.push({ name: "hit", t: ct + 0.05, gain: 0.85 }); }
   return cues;
 }

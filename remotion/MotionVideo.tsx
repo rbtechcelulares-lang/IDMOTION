@@ -64,7 +64,7 @@ export const MotionVideo: React.FC<{ edl: Edl }> = ({ edl }) => {
 };
 
 /** Varredura (painel amarelo com faixa preta) ou flash; cobre a tela inteira exatamente no corte. */
-function TransitionFx({ kind, half, light }: { kind: string; half: number; light: boolean }) {
+export function TransitionFx({ kind, half, light }: { kind: string; half: number; light: boolean }) {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   if (kind === "flash") {
@@ -85,7 +85,7 @@ function TransitionFx({ kind, half, light }: { kind: string; half: number; light
   );
 }
 
-function BackgroundLayer({ bg, texture, preset }: { bg: Background; texture: Texture; preset: Edl["preset"] }) {
+export function BackgroundLayer({ bg, texture, preset }: { bg: Background; texture: Texture; preset: Edl["preset"] }) {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const u = Math.min(width, height) / 1080;
@@ -249,7 +249,7 @@ function PhonesVisual({ kind, area }: { kind: "phones" | "phone"; area: "upper" 
   );
 }
 
-function TextureLayer({ texture, light, u, frame }: { texture: Texture; light: boolean; u: number; frame: number }) {
+export function TextureLayer({ texture, light, u, frame }: { texture: Texture; light: boolean; u: number; frame: number }) {
   const ink = light ? "rgba(0,0,0," : "rgba(255,255,255,";
   if (texture === "none") return null;
   if (texture === "grain") {
@@ -284,7 +284,7 @@ function SceneBg({ bg, texture, preset, fadeIn }: { bg: Background; texture: Tex
 }
 
 /** Ícone Lucide (traço) ou emoji. */
-function Glyph({ name, size, color, glow, stroke = 1.6 }: { name: string; size: number; color: string; glow?: string; stroke?: number }) {
+export function Glyph({ name, size, color, glow, stroke = 1.6 }: { name: string; size: number; color: string; glow?: string; stroke?: number }) {
   if (isEmoji(name)) return <span style={{ fontSize: size * 0.9, lineHeight: 1, fontFamily: EMOJI_FONT, filter: glow ? `drop-shadow(0 0 ${size * 0.15}px ${glow})` : undefined }}>{name}</span>;
   const Icon = icons[name as keyof typeof icons] ?? icons.Sparkles;
   return <Icon size={size} color={color} strokeWidth={stroke} style={{ filter: glow ? `drop-shadow(0 0 ${size * 0.12}px ${glow}) drop-shadow(0 0 ${size * 0.3}px ${glow})` : undefined }} />;
@@ -322,7 +322,7 @@ function Floaters({ items, bgAt }: { items: string[]; bgAt: (frame: number) => B
 
 type Tok = { w: string; hi: boolean; strike: boolean };
 /** "*destaque*" e "~riscado~" → tokens. */
-function tokens(text: string): Tok[] {
+export function tokens(text: string): Tok[] {
   const out: Tok[] = [];
   let hi = false, strike = false;
   for (const raw of text.split(/\s+/)) {
@@ -372,7 +372,7 @@ function RichText({ text, size, color, accent, mark, preset, align = "center", w
   );
 }
 
-function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Scene; bg: Background; index: number; total: number; dur: number }) {
+export function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Scene; bg: Background; index: number; total: number; dur: number }) {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const u = Math.min(width, height) / 1080;

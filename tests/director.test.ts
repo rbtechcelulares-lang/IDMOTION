@@ -21,7 +21,9 @@ const b: Brief = { name: "iPhone 15 Pro", format: "9:16", style: "viral", object
 
 test("heurístico: remove trecho só de muleta, aplica preço/CTA/duração e legendas", async () => {
   const edl = await new HeuristicDirector().plan(a, b);
-  assert.equal(edl.clips.length, 2); // [13.4-16.6] só tinha "é, hum"
+  const segs = edl.clips.filter((c, i) => i === 0 || Math.abs(c.in - edl.clips[i - 1].out) > 0.05);
+  assert.equal(segs.length, 2); // [13.4-16.6] só tinha "é, hum"
+  assert.ok(edl.clips.some((c) => c.zoom > 1)); // tomadas longas ganham jump zoom
   assert.equal(edl.overlays.price?.value, "R$ 4.299");
   assert.equal(edl.overlays.cta?.text, "Chama no direct");
   assert.ok(edlDuration(edl) <= 20.01);
@@ -37,7 +39,7 @@ test("comandos do chat", async () => {
   assert.equal(r.edl.overlays.price?.value, "R$ 3.999");
   assert.equal(r.edl.overlays.cta, null);
   assert.equal(r.edl.captions.size, "md");
-  assert.equal(r.edl.clips.length, 1);
+  assert.equal(r.edl.clips.length, edl.clips.length - 1);
   assert.equal(applyCommands(edl, "faça algo poético", a), null);
 });
 

@@ -1,15 +1,41 @@
 import React from "react";
-import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { type Edl, edlDuration } from "../shared/edl";
-import { LOOK, YELLOW } from "./presets";
-import { MotionVideo } from "./MotionVideo";
+import { type Background, iconFor } from "../shared/motion";
+import { INK, LOOK, YELLOW } from "./presets";
+import { BackgroundLayer, Glyph, MotionVideo, SceneView, TransitionFx, tokens } from "./MotionVideo";
 
 type P = { edl: Edl };
+type Scene = NonNullable<Edl["motion"]>["scenes"][number];
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-const longestWord = (t: string) => Math.max(...t.split(/\s+/).map((w) => w.length));
 
-/** Camada transparente com legendas, textos, preço, abertura e CTA. Renderizada sobre o vídeo-base. */
+/** Camada transparente renderizada sobre o vídeo-base (ou o vídeo 100% motion). */
 export const Overlay: React.FC<P> = ({ edl }) => (edl.mode === "motion" ? <MotionVideo edl={edl} /> : <VideoOverlay edl={edl} />);
+
+// emoji que acompanha o texto sobre a filmagem (ícone de traço some em cima de vídeo)
+const EMOJI: Record<string, string> = {
+  Gift: "🎁", Sparkles: "✨", Tag: "🔥", Smartphone: "📱", MessageSquareText: "💬", Phone: "📞", Truck: "🚚", ShieldCheck: "🛡️",
+  CreditCard: "💳", Zap: "⚡", MapPin: "📍", Clock: "⏰", BadgeCheck: "✅", Users: "👥", ShoppingCart: "🛒", Camera: "📸", BatteryFull: "🔋", Headphones: "🎧", Watch: "⌚",
+};
+function emojiFor(text: string): string | undefined {
+  const t = text.toLowerCase();
+  if (/\b\d{1,2}\/\d{1,2}\b|\bdia\b|amanh[aã]|hoje/.test(t)) return "⏳";
+  if (/perfume|fragr/.test(t)) return "💎";
+  if (/vip|grupo/.test(t)) return "👑";
+  const ic = iconFor(t);
+  return ic ? EMOJI[ic] : undefined;
+}
+
+/** Destaque automático: preço/número/data ou palavra de impacto; senão a palavra mais longa. Respeita *…* já escrito. */
+function autoMark(s: string): string {
+  if (s.includes("*")) return s;
+  const m = s.match(/R\$\s?\d[\d.,]*|\b\d{1,2}\/\d{1,2}\b|\b\d+\s?(?:x|%|gb)\b|\b(?:vip|gr[aá]tis|sorteios?|brindes?|promo\w*|oferta|exclusiv\w*|garantia|pix|perfume\w*|iphones?)\b/i);
+  if (m) return s.replace(m[0], `*${m[0]}*`);
+  const words = s.split(/\s+/);
+  if (words.length < 2) return s;
+  const w = words.reduce((a, b) => (b.length > a.length ? b : a));
+  return s.replace(w, `*${w}*`);
+}
 
 const VideoOverlay: React.FC<P> = ({ edl }) => {
   const frame = useCurrentFrame();
@@ -19,23 +45,89 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
   const total = edlDuration(edl);
   const look = LOOK[edl.preset];
   const { intro, cta, price, texts } = edl.overlays;
+  const introDur = intro ? Math.min(intro.duration, 2.4) : 0;
   const ctaStart = cta ? total - cta.duration : Infinity;
-  const inIntro = !!intro && t < intro.duration;
+  const inIntro = t < introDur;
   const inCta = t >= ctaStart;
+  const bodyOn = !inIntro && !inCta;
+
+  const cap = edl.captions.enabled ? edl.captions.items.find((c) => t >= c.start && t < c.end) : undefined;
+  const txt = texts.find((x) => t >= x.start && t < x.end);
+  const priceOn = !!price && t >= price.start && t < price.end && bodyOn;
+  // posição: legenda da fala embaixo; texto do roteiro embaixo, ou em cima quando há fala (e não há preço em cima)
+  const txtZone: Zone = cap && !priceOn ? "upper" : "lower";
+  const showCap = !!cap && bodyOn && !(txt && txtZone === "lower");
+  const lowerBusy = bodyOn && (showCap || (!!txt && txtZone === "lower"));
+
+  const theme = edl.motion?.theme;
+  const introBg: Background = theme?.bg ?? (edl.preset === "viral" ? "rays" : edl.preset === "premium" ? "glow" : "black");
+  const ctaBg: Background = edl.preset === "viral" ? "yellow" : edl.preset === "premium" ? "spotlight" : "black";
+  const texture = theme?.texture ?? "grain";
+  const introF = Math.round(introDur * fps);
+  const ctaF = cta ? Math.round(ctaStart * fps) : 0;
 
   return (
     <AbsoluteFill style={{ fontFamily: look.font, color: "white" }}>
-      {look.letterbox && <Letterbox u={u} height={height} />}
-      {edl.captions.enabled && !inIntro && !inCta && <Captions edl={edl} t={t} u={u} />}
-      {texts.map((x, i) => t >= x.start && t < x.end && <FloatingText key={i} item={x} t={t} u={u} edl={edl} />)}
-      {price && t >= price.start && t < price.end && !inCta && <Price edl={edl} t={t - price.start} dur={price.end - price.start} u={u} />}
-      {intro && inIntro && <Intro edl={edl} t={t} u={u} />}
-      {cta && inCta && <Cta edl={edl} t={t - ctaStart} u={u} />}
+      <Vignette strength={edl.preset === "cinematic" ? 0.5 : 0.32} />
+      <Scrim on={lowerBusy} />
+      {look.letterbox && <Letterbox height={height} />}
+      {showCap && cap && <Headline key={`c${cap.start}`} edl={edl} text={cap.text} local={t - cap.start} dur={cap.end - cap.start} zone="lower" karaoke u={u} />}
+      {txt && bodyOn && <Headline key={`t${txt.start}`} edl={edl} text={txt.text} local={t - txt.start} dur={txt.end - txt.start} zone={txtZone} u={u} emoji={emojiFor(txt.text)} />}
+      {priceOn && price && <PriceSticker edl={edl} local={t - price.start} dur={price.end - price.start} u={u} />}
+
+      {intro && introF > 0 && (
+        <Sequence from={0} durationInFrames={introF}>
+          <Card edl={edl} bg={introBg} texture={texture} durF={introF}
+            scene={{ kind: "title", text: autoMark(intro.text), sub: intro.sub, duration: introDur, icon: emojiFor(`${intro.text} ${intro.sub ?? ""}`), anim: edl.preset === "viral" ? "zoom" : edl.preset === "premium" ? "blur" : "rise", layout: "center" }} />
+        </Sequence>
+      )}
+      {intro && introF > 0 && edl.preset !== "cinematic" && (
+        <Sequence from={Math.max(0, introF - 8)} durationInFrames={18}><TransitionFx kind="wipe-lr" half={8} light={false} /></Sequence>
+      )}
+      {cta && (
+        <Sequence from={ctaF} durationInFrames={Math.max(1, Math.round(cta.duration * fps)) + 2}>
+          <Card edl={edl} bg={ctaBg} texture={texture} durF={Math.round(cta.duration * fps) + 2} fadeIn={edl.preset === "cinematic" ? 12 : 0}
+            scene={{ kind: "cta", text: cta.text.replace(/\s*[→>]+\s*$/, ""), sub: cta.sub, duration: cta.duration, icon: emojiFor(cta.text) ?? "👉", layout: "bottom", visual: "phones" }} />
+        </Sequence>
+      )}
+      {cta && edl.preset !== "cinematic" && (
+        <Sequence from={Math.max(0, ctaF - 8)} durationInFrames={18}><TransitionFx kind="wipe-rl" half={8} light={false} /></Sequence>
+      )}
+      {priceOn && price && t - price.start < 0.2 && edl.preset !== "cinematic" && <Flash local={t - price.start} />}
     </AbsoluteFill>
   );
 };
 
-const Letterbox: React.FC<{ u: number; height: number }> = ({ height }) => {
+type Zone = "upper" | "lower";
+
+/** Cena de motion em tela cheia (abertura e chamada final) com fundo da biblioteca. */
+function Card({ edl, scene, bg, texture, durF, fadeIn = 0 }: { edl: Edl; scene: Partial<Scene> & { kind: Scene["kind"]; text: string; duration: number }; bg: Background; texture: NonNullable<Edl["motion"]>["theme"]["texture"]; durF: number; fadeIn?: number }) {
+  const frame = useCurrentFrame();
+  const o = fadeIn ? interpolate(frame, [0, fadeIn], [0, 1], clamp) : 1;
+  return (
+    <AbsoluteFill style={{ opacity: o }}>
+      <BackgroundLayer bg={bg} texture={texture} preset={edl.preset} />
+      <SceneView edl={edl} scene={scene as Scene} bg={bg} index={0} total={1} dur={durF + 30} />
+    </AbsoluteFill>
+  );
+}
+
+const Vignette: React.FC<{ strength: number }> = ({ strength }) => (
+  <AbsoluteFill style={{ background: `radial-gradient(ellipse 75% 60% at 50% 45%, transparent 55%, rgba(0,0,0,${strength}) 100%)` }} />
+);
+
+/** Escurece o terço de baixo enquanto há texto ali (leitura em qualquer filmagem). */
+function Scrim({ on }: { on: boolean }) {
+  if (!on) return null;
+  return <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(0,0,0,.62) 0%, rgba(0,0,0,.35) 26%, transparent 48%)" }} />;
+}
+
+function Flash({ local }: { local: number }) {
+  const o = interpolate(local, [0, 0.04, 0.2], [0.75, 0.6, 0], clamp);
+  return <AbsoluteFill style={{ background: "#fff", opacity: o }} />;
+}
+
+const Letterbox: React.FC<{ height: number }> = ({ height }) => {
   const frame = useCurrentFrame();
   const h = interpolate(frame, [0, 24], [0, height * 0.07], { ...clamp, easing: Easing.out(Easing.cubic) });
   return (
@@ -46,160 +138,87 @@ const Letterbox: React.FC<{ u: number; height: number }> = ({ height }) => {
   );
 };
 
-function Captions({ edl, t, u }: { edl: Edl; t: number; u: number }) {
-  const { fps } = useVideoConfig();
-  const look = LOOK[edl.preset];
-  const cap = edl.captions.items.find((c) => t >= c.start && t < c.end);
-  if (!cap) return null;
-  const local = t - cap.start;
-  const size = look.captionSize[edl.captions.size] * u;
-  const words = cap.text.split(/\s+/);
-  const per = (cap.end - cap.start) / words.length;
-  const active = Math.min(words.length - 1, Math.floor(local / per));
-  const pos = edl.captions.position;
-  const pop = spring({ frame: Math.round(local * fps), fps, config: { damping: 12, stiffness: 220 } });
-  const fade = interpolate(local, [0, 0.15], [0, 1], clamp);
-  const justify = pos === "top" ? "flex-start" : pos === "center" ? "center" : "flex-end";
-  const pad = pos === "center" ? 0 : (look.letterbox ? 0.11 : 0.14) * (pos === "top" ? 1 : 1.25) * 1920 * u;
+/**
+ * Texto grande sobre a filmagem (legenda da fala ou texto do roteiro): palavra a palavra, destaque em amarelo,
+ * contorno para ler em qualquer fundo e tamanho calculado para caber na largura.
+ */
+function Headline({ edl, text, local, dur, zone, karaoke, emoji, u }: { edl: Edl; text: string; local: number; dur: number; zone: Zone; karaoke?: boolean; emoji?: string; u: number }) {
+  const { fps, width, height } = useVideoConfig();
+  const preset = edl.preset;
+  const f = Math.round(local * fps);
+  const toks = tokens(karaoke ? text : autoMark(text));
+  const upper = preset === "viral";
+  const longest = Math.max(5, ...toks.map((k) => k.w.length));
+  const cap = (preset === "viral" ? 124 : preset === "premium" ? 100 : 84) * u * (karaoke ? 0.86 : 1);
+  const size = Math.min(cap, (width * 0.86) / (longest * (upper ? 0.7 : 0.6)));
+  const out = interpolate(dur - local, [0, 0.18], [0, 1], clamp);
+  const active = karaoke ? Math.min(toks.length - 1, Math.floor(local / (dur / toks.length))) : -1;
+  const pad = zone === "lower" ? { paddingBottom: height * 0.19 } : { paddingTop: height * 0.17 };
+  const es = spring({ frame: f, fps, config: { damping: 10, stiffness: 180 } });
 
   return (
-    <AbsoluteFill style={{ justifyContent: justify, alignItems: "center", padding: `${pad}px ${70 * u}px`, top: pos === "center" ? 260 * u : 0 }}>
-      <div
-        style={{
-          fontSize: size, fontWeight: look.captionWeight, lineHeight: 1.08, textAlign: "center", letterSpacing: look.tracking,
-          textTransform: look.captionUpper ? "uppercase" : "none",
-          transform: edl.preset === "viral" ? `scale(${0.85 + 0.15 * pop})` : `translateY(${(1 - fade) * 16 * u}px)`,
-          opacity: edl.preset === "viral" ? 1 : fade,
-          background: look.captionBox ? "rgba(0,0,0,.62)" : undefined,
-          borderRadius: look.captionBox ? 18 * u : undefined,
-          padding: look.captionBox ? `${14 * u}px ${26 * u}px` : undefined,
-          borderBottom: look.captionBox ? `${5 * u}px solid ${YELLOW}` : undefined,
-          textShadow: look.captionBox ? undefined : edl.preset === "viral" ? `0 0 ${3 * u}px #000, 0 ${6 * u}px 0 #000, ${4 * u}px ${4 * u}px 0 #000, -${4 * u}px ${4 * u}px 0 #000` : `0 ${2 * u}px ${18 * u}px rgba(0,0,0,.85)`,
-          WebkitTextStroke: edl.preset === "viral" ? `${3 * u}px black` : undefined,
-          paintOrder: "stroke fill",
-          maxWidth: "100%",
-        }}
-      >
-        {words.map((w, i) => (
-          <span key={i} style={{ color: look.highlightWord && i === active ? YELLOW : "white" }}>{w}{i < words.length - 1 ? " " : ""}</span>
-        ))}
-      </div>
-    </AbsoluteFill>
-  );
-}
-
-function FloatingText({ item, t, u, edl }: { item: Edl["overlays"]["texts"][number]; t: number; u: number; edl: Edl }) {
-  const local = t - item.start;
-  const out = item.end - t;
-  const o = Math.min(interpolate(local, [0, 0.25], [0, 1], clamp), interpolate(out, [0, 0.25], [0, 1], clamp));
-  const justify = item.position === "top" ? "flex-start" : item.position === "center" ? "center" : "flex-end";
-  return (
-    <AbsoluteFill style={{ justifyContent: justify, alignItems: "center", padding: `${200 * u}px ${70 * u}px` }}>
-      <div style={{ opacity: o, transform: `translateY(${(1 - o) * -20 * u}px)`, background: edl.preset === "viral" ? YELLOW : "rgba(0,0,0,.6)", color: edl.preset === "viral" ? "black" : "white", fontWeight: 800, fontSize: 48 * u, padding: `${12 * u}px ${24 * u}px`, borderRadius: 10 * u, textAlign: "center", textTransform: edl.preset === "viral" ? "uppercase" : "none", borderLeft: edl.preset !== "viral" ? `${6 * u}px solid ${YELLOW}` : undefined }}>
-        {item.text}
-      </div>
-    </AbsoluteFill>
-  );
-}
-
-function Intro({ edl, t, u }: { edl: Edl; t: number; u: number }) {
-  const { fps } = useVideoConfig();
-  const intro = edl.overlays.intro!;
-  const outO = interpolate(t, [intro.duration - 0.3, intro.duration], [1, 0], clamp);
-  const s = spring({ frame: Math.round(t * fps), fps, config: { damping: 14, stiffness: 180 } });
-
-  if (edl.preset === "viral") {
-    return (
-      <AbsoluteFill style={{ background: `rgba(0,0,0,${0.55 * outO})`, justifyContent: "center", alignItems: "center", opacity: outO, padding: 60 * u }}>
-        <div style={{ fontSize: Math.min(120, 1500 / Math.max(8, longestWord(intro.text) * 1.6)) * u, fontWeight: 900, textTransform: "uppercase", textAlign: "center", lineHeight: 0.95, opacity: Math.min(1, s * 3), transform: `scale(${1.25 - 0.25 * s}) rotate(${(1 - s) * -4}deg)`, letterSpacing: -2 * u, maxWidth: "100%" }}>{intro.text}</div>
-        {intro.sub && <div style={{ marginTop: 30 * u, background: YELLOW, color: "black", fontWeight: 900, fontSize: 46 * u, padding: `${8 * u}px ${22 * u}px`, textTransform: "uppercase", transform: `translateY(${(1 - s) * 60 * u}px)` }}>{intro.sub}</div>}
-      </AbsoluteFill>
-    );
-  }
-  if (edl.preset === "cinematic") {
-    const inO = interpolate(t, [0.1, 0.9], [0, 1], clamp);
-    const spacing = interpolate(t, [0, intro.duration], [4, 14], clamp) * u;
-    return (
-      <AbsoluteFill style={{ background: `rgba(0,0,0,${interpolate(t, [0, intro.duration], [1, 0.35], clamp) * outO})`, justifyContent: "center", alignItems: "center", opacity: outO }}>
-        <div style={{ opacity: inO, fontSize: 74 * u, fontWeight: 400, letterSpacing: spacing, textAlign: "center", padding: `0 ${60 * u}px` }}>{intro.text}</div>
-        <div style={{ height: 3 * u, width: interpolate(t, [0.3, 1.2], [0, 220], clamp) * u, background: YELLOW, marginTop: 28 * u }} />
-        {intro.sub && <div style={{ opacity: inO, marginTop: 22 * u, fontSize: 32 * u, letterSpacing: 6 * u, textTransform: "uppercase", color: "#ddd" }}>{intro.sub}</div>}
-      </AbsoluteFill>
-    );
-  }
-  const x = interpolate(s, [0, 1], [-80, 0]) * u;
-  return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", padding: `${260 * u}px ${70 * u}px`, opacity: outO, background: `linear-gradient(to top, rgba(0,0,0,${0.75 * outO}), transparent 55%)` }}>
-      <div style={{ width: interpolate(s, [0, 1], [0, 140]) * u, height: 8 * u, background: YELLOW, marginBottom: 22 * u }} />
-      <div style={{ fontSize: 88 * u, fontWeight: 800, lineHeight: 1, transform: `translateX(${x}px)`, letterSpacing: -1 * u }}>{intro.text}</div>
-      {intro.sub && <div style={{ marginTop: 16 * u, fontSize: 36 * u, color: "#e5e5e5", transform: `translateX(${x * 1.4}px)` }}>{intro.sub}</div>}
-    </AbsoluteFill>
-  );
-}
-
-function Price({ edl, t, dur, u }: { edl: Edl; t: number; dur: number; u: number }) {
-  const { fps } = useVideoConfig();
-  const price = edl.overlays.price!;
-  const s = spring({ frame: Math.round(t * fps), fps, config: { damping: 13, stiffness: 160 } });
-  const out = interpolate(dur - t, [0, 0.25], [0, 1], clamp);
-  if (edl.preset === "viral") {
-    return (
-      <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 240 * u }}>
-        <div style={{ opacity: out, transform: `scale(${s}) rotate(${-4 + (1 - s) * 20}deg)`, background: YELLOW, color: "black", padding: `${18 * u}px ${40 * u}px`, borderRadius: 18 * u, textAlign: "center", boxShadow: `0 ${12 * u}px 0 #000` }}>
-          {price.label && <div style={{ fontSize: 34 * u, fontWeight: 800, textTransform: "uppercase" }}>{price.label}</div>}
-          <div style={{ fontSize: 110 * u, fontWeight: 900, lineHeight: 1 }}>{price.value}</div>
+    <AbsoluteFill style={{ justifyContent: zone === "lower" ? "flex-end" : "flex-start", alignItems: "center", padding: `0 ${60 * u}px`, ...pad, opacity: out, transform: `scale(${0.94 + 0.06 * out})` }}>
+      {emoji && (
+        <div style={{ lineHeight: 1, marginBottom: 14 * u, transform: `scale(${es}) rotate(${Math.sin(local * 5) * 7}deg)`, filter: `drop-shadow(0 ${6 * u}px ${10 * u}px rgba(0,0,0,.5))` }}>
+          <Glyph name={emoji} size={130 * u} color={YELLOW} />
         </div>
-      </AbsoluteFill>
-    );
-  }
-  if (edl.preset === "cinematic") {
-    const o = Math.min(interpolate(t, [0, 0.6], [0, 1], clamp), out);
-    return (
-      <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 260 * u, opacity: o }}>
-        {price.label && <div style={{ fontSize: 30 * u, letterSpacing: 8 * u, textTransform: "uppercase", color: "#ddd" }}>{price.label}</div>}
-        <div style={{ fontSize: 96 * u, letterSpacing: 2 * u, textShadow: `0 ${2 * u}px ${20 * u}px rgba(0,0,0,.8)` }}>{price.value}</div>
-        <div style={{ height: 2 * u, width: 160 * u, background: YELLOW, marginTop: 10 * u }} />
-      </AbsoluteFill>
-    );
-  }
-  return (
-    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 260 * u, paddingRight: 60 * u }}>
-      <div style={{ opacity: out, transform: `translateX(${(1 - s) * 500 * u}px)`, background: "rgba(10,10,10,.88)", borderRadius: 24 * u, padding: `${22 * u}px ${34 * u}px`, borderLeft: `${10 * u}px solid ${YELLOW}`, textAlign: "right" }}>
-        {price.label && <div style={{ fontSize: 30 * u, color: "#cfcfcf" }}>{price.label}</div>}
-        <div style={{ fontSize: 92 * u, fontWeight: 800, color: YELLOW, lineHeight: 1.05 }}>{price.value}</div>
+      )}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", columnGap: size * 0.26, rowGap: size * 0.08, maxWidth: "100%", fontSize: size, lineHeight: 1.08, fontWeight: preset === "cinematic" ? 600 : preset === "premium" ? 800 : 900, letterSpacing: preset === "cinematic" ? 1 : -1, textTransform: upper ? "uppercase" : "none", textAlign: "center" }}>
+        {toks.map((k, i) => {
+          const d = Math.max(0, f - i * (preset === "viral" ? 2 : 3));
+          const s = spring({ frame: d, fps, config: { damping: preset === "viral" ? 11 : 15, stiffness: 210 } });
+          const hi = karaoke ? i === active : k.hi;
+          const enter: React.CSSProperties = preset === "viral"
+            ? { transform: `translateY(${(1 - s) * 50 * u}px) scale(${0.6 + 0.4 * s}) rotate(${hi ? -2 : 0}deg)`, opacity: Math.min(1, s * 2.2) }
+            : preset === "premium"
+              ? { transform: `translateY(${(1 - s) * 26 * u}px)`, opacity: Math.min(1, d / 5), filter: `blur(${interpolate(d, [0, 7], [8, 0], clamp)}px)` }
+              : { transform: `translateY(${(1 - s) * 18 * u}px)`, opacity: Math.min(1, d / 8) };
+          const box = hi && preset === "viral" && !karaoke;
+          return (
+            <span key={i} style={{
+              display: "inline-block", ...enter,
+              color: box ? INK : hi ? YELLOW : "#fff",
+              background: box ? YELLOW : undefined,
+              padding: box ? `0 ${size * 0.14}px` : undefined, borderRadius: size * 0.14,
+              WebkitTextStroke: box || preset !== "viral" ? undefined : `${size * 0.075}px #000`, paintOrder: "stroke fill",
+              textShadow: box ? undefined : preset === "viral" ? `0 ${size * 0.07}px 0 #000` : `0 ${2 * u}px ${18 * u}px rgba(0,0,0,.9), 0 0 ${4 * u}px rgba(0,0,0,.6)`,
+              boxShadow: box ? `0 ${size * 0.07}px 0 #000` : undefined,
+              transformOrigin: "50% 80%",
+            }}>{k.w}</span>
+          );
+        })}
       </div>
+      {preset === "premium" && (
+        <div style={{ height: 7 * u, width: interpolate(f, [4, 18], [0, 150], clamp) * u, background: YELLOW, borderRadius: 9, marginTop: 18 * u }} />
+      )}
     </AbsoluteFill>
   );
 }
 
-function Cta({ edl, t, u }: { edl: Edl; t: number; u: number }) {
-  const { fps } = useVideoConfig();
-  const cta = edl.overlays.cta!;
-  const s = spring({ frame: Math.round(t * fps), fps, config: { damping: 12, stiffness: 170 } });
-  const pulse = 1 + 0.04 * Math.sin(t * Math.PI * 2.2);
-  if (edl.preset === "viral") {
-    return (
-      <AbsoluteFill style={{ background: `rgba(0,0,0,${0.5 * s})`, justifyContent: "center", alignItems: "center" }}>
-        <div style={{ transform: `scale(${s * pulse})`, background: YELLOW, color: "black", fontWeight: 900, fontSize: 84 * u, padding: `${26 * u}px ${48 * u}px`, borderRadius: 999, textTransform: "uppercase", textAlign: "center", boxShadow: `0 ${10 * u}px 0 #000` }}>{cta.text} →</div>
-        {cta.sub && <div style={{ marginTop: 26 * u, fontSize: 40 * u, fontWeight: 800, opacity: s }}>{cta.sub}</div>}
-      </AbsoluteFill>
-    );
-  }
-  if (edl.preset === "cinematic") {
-    const o = interpolate(t, [0, 0.8], [0, 1], clamp);
-    return (
-      <AbsoluteFill style={{ background: `rgba(0,0,0,${0.7 * o})`, justifyContent: "center", alignItems: "center", opacity: o }}>
-        <div style={{ fontSize: 70 * u, letterSpacing: 4 * u, textAlign: "center", padding: `0 ${60 * u}px` }}>{cta.text}</div>
-        <div style={{ height: 3 * u, width: interpolate(t, [0.3, 1.2], [0, 260], clamp) * u, background: YELLOW, marginTop: 24 * u }} />
-        {cta.sub && <div style={{ marginTop: 20 * u, fontSize: 32 * u, color: "#ddd" }}>{cta.sub}</div>}
-      </AbsoluteFill>
-    );
-  }
+/** Preço em adesivo amarelo grande no topo, com brilho passando. */
+function PriceSticker({ edl, local, dur, u }: { edl: Edl; local: number; dur: number; u: number }) {
+  const { fps, width, height } = useVideoConfig();
+  const price = edl.overlays.price!;
+  const f = Math.round(local * fps);
+  const s = spring({ frame: f, fps, config: { damping: 9, stiffness: 170 } });
+  const out = interpolate(dur - local, [0, 0.2], [0, 1], clamp);
+  const value = price.value.replace(/\s+/g, " ").trim();
+  const size = Math.min(170 * u, (width * 0.78) / (value.length * 0.62));
+  const shine = interpolate(f % 50, [8, 26], [-1.3, 1.3], clamp);
+  const cine = edl.preset === "cinematic";
+  const bob = Math.sin(local * 3) * 4 * u;
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end" }}>
-      <div style={{ transform: `translateY(${(1 - s) * 400 * u}px)`, background: "#0a0a0a", padding: `${46 * u}px ${60 * u}px ${80 * u}px`, borderTop: `${8 * u}px solid ${YELLOW}` }}>
-        <div style={{ fontSize: 72 * u, fontWeight: 800, color: YELLOW }}>{cta.text}</div>
-        {cta.sub && <div style={{ fontSize: 34 * u, color: "#ddd", marginTop: 10 * u }}>{cta.sub}</div>}
+    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: height * 0.12, opacity: out }}>
+      {price.label && (
+        <div style={{ transform: `translateY(${(1 - s) * -40 * u}px) rotate(-3deg)`, opacity: Math.min(1, s * 2), background: cine ? "transparent" : INK, color: cine ? "#eee" : "#fff", fontSize: 40 * u, fontWeight: 800, letterSpacing: 3 * u, textTransform: "uppercase", padding: `${8 * u}px ${24 * u}px`, borderRadius: 12 * u, marginBottom: -10 * u, zIndex: 2, border: cine ? undefined : `${3 * u}px solid ${YELLOW}`, textShadow: cine ? "0 2px 14px rgba(0,0,0,.9)" : undefined }}>
+          {price.label}
+        </div>
+      )}
+      <div style={{ position: "relative", overflow: "hidden", transform: `translateY(${bob}px) scale(${0.4 + 0.6 * s}) rotate(${cine ? 0 : -3 + (1 - s) * 18}deg)`, opacity: Math.min(1, s * 2.5),
+        background: cine ? "rgba(0,0,0,.45)" : `linear-gradient(180deg, #ffe46b 0%, ${YELLOW} 50%, #e8b800 100%)`, color: cine ? YELLOW : INK,
+        borderRadius: 26 * u, padding: `${6 * u}px ${44 * u}px ${12 * u}px`, boxShadow: cine ? undefined : `0 ${14 * u}px 0 #000, 0 0 ${60 * u}px rgba(255,214,10,.45)` }}>
+        <div style={{ fontSize: size, fontWeight: 900, lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: -2 * u }}>{value}</div>
+        {!cine && <div style={{ position: "absolute", top: 0, bottom: 0, width: "35%", left: `${50 + shine * 60}%`, transform: "translateX(-50%) skewX(-20deg)", background: "linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent)" }} />}
       </div>
     </AbsoluteFill>
   );
