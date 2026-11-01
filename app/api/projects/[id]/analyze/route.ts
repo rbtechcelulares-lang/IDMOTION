@@ -6,7 +6,8 @@ import { isUuid } from "@/lib/files";
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "id inválido" }, { status: 400 });
-  const { data: p } = await db().from("projects").select("source_path,status").eq("id", id).maybeSingle();
+  const { data: p } = await db().from("projects").select("source_path,status,files_deleted_at").eq("id", id).maybeSingle();
+  if (p?.files_deleted_at) return NextResponse.json({ error: "Os vídeos deste projeto foram apagados (2 dias). Crie um novo projeto." }, { status: 410 });
   if (!p?.source_path) return NextResponse.json({ error: "Envie o vídeo primeiro" }, { status: 409 });
   const { data: active } = await db().from("jobs").select("id").eq("project_id", id).in("status", ["queued", "running"]).limit(1);
   if (active?.length) return NextResponse.json({ error: "Já existe um processamento em andamento" }, { status: 409 });

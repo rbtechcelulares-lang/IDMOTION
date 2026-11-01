@@ -116,3 +116,5 @@ grant execute on function claim_job(text) to service_role;
 insert into storage.buckets (id, name, public)
 values ('media', 'media', false)
 on conflict (id) do nothing;
+-- Retenção: arquivos de vídeo são apagados após RETENTION_DAYS (padrão 2) sem atividade.
+alter table projects add column if not exists files_deleted_at timestamptz;

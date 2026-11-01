@@ -33,3 +33,6 @@
 ## Nuvem (iPhone sem PC)
 - `STORAGE=supabase`: upload direto do navegador para o Supabase Storage (URL assinada), worker baixa/sobe do bucket, download e frames por link assinado.
 - `railway.json` para o worker, `supabase/setup_nuvem.sql`, guia `DEPLOY_IPHONE.md`. Modo local continua funcionando.
+
+## Retenção de 2 dias
+- Worker apaga (de hora em hora) fonte, trilha, frames, renders e cache de narração de projetos sem atividade há `RETENTION_DAYS` (padrão 2); projeto fica "Arquivos apagados" com histórico/EDL preservados.

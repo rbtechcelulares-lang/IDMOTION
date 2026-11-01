@@ -6,6 +6,7 @@ import { killAll } from "./proc";
 import { jobCtx, type Job } from "./jobs";
 import { runAnalyze } from "./analyze";
 import { runRender } from "./render";
+import { cleanupOldFiles } from "./cleanup";
 
 const WORKER_ID = `${os.hostname()}-${process.pid}`;
 const POLL_MS = Number(process.env.WORKER_POLL_MS || 2000);
@@ -51,7 +52,12 @@ async function loop() {
   console.log(`[worker] ${WORKER_ID} pronto (poll ${POLL_MS}ms)`);
   // jobs "running" órfãos (worker caiu) voltam para a fila
   await db.from("jobs").update({ status: "queued" }).eq("status", "running");
+  let lastCleanup = 0;
   while (!stopping) {
+    if (Date.now() - lastCleanup > 3600_000) {
+      lastCleanup = Date.now();
+      await cleanupOldFiles().catch((e) => console.error("[cleanup]", e.message));
+    }
     const { data, error } = await db.rpc("claim_job", { p_worker: WORKER_ID });
     if (error) console.error("[worker] claim:", error.message);
     const job = (data as Job[] | null)?.[0];

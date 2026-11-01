@@ -6,6 +6,7 @@ const MAP: Record<string, [string, string]> = {
   rendering: ["Renderizando", "text-volt border-volt/40"],
   done: ["Exportado", "text-ink bg-volt border-volt"],
   error: ["Erro", "text-red-400 border-red-400/40"],
+  expired: ["Arquivos apagados", "text-smoke border-line"],
 };
 export function StatusBadge({ status }: { status: string }) {
   const [label, cls] = MAP[status] || [status, "text-smoke border-line"];

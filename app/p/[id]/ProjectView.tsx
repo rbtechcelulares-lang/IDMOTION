@@ -7,7 +7,7 @@ import type { Edl } from "@/shared/edl";
 type Job = { id: string; type: string; status: string; progress: number; stage: string; attempts: number; max_attempts: number; error: string | null; output_path: string | null; edl_version: number | null; created_at: string; cancel_requested: boolean;
   qc: { passed: boolean; checks: { name: string; ok: boolean; value: string; expected: string; severity: string }[]; notes: string[] } | null };
 type State = {
-  project: { id: string; name: string; status: string; format: string; style: Style; objective: string; instructions: string; error: string | null; current_version: number | null;
+  project: { id: string; name: string; status: string; format: string; style: Style; objective: string; instructions: string; error: string | null; current_version: number | null; files_deleted_at: string | null;
     analysis: { duration: number; width: number; height: number; hasAudio: boolean; scenes: number; speech: number; words: number; transcriptProvider: string; frames: number; loudnessLufs: number | null } | null };
   edl: Edl | null; canUndo: boolean; versions: { version: number; source: string; note: string }[];
   messages: { id: number; role: string; content: string; edl_version: number | null }[]; jobs: Job[];
@@ -52,6 +52,7 @@ export function ProjectView({ id }: { id: string }) {
   const lastRender = s.jobs.find((j) => j.type === "render" && j.status !== "queued" && j.status !== "running");
   const lastDone = s.jobs.find((j) => j.type === "render" && j.status === "done");
   const analyzing = active?.type === "analyze";
+  const expired = !!p.files_deleted_at;
 
   return (
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[1fr_400px]">
@@ -64,7 +65,9 @@ export function ProjectView({ id }: { id: string }) {
         </div>
 
         <div className="flex justify-center rounded-2xl border border-line bg-panel p-4">
-          {lastDone ? (
+          {expired ? (
+            <div className="py-16 text-center text-smoke">Os vídeos deste projeto foram apagados automaticamente após 2 dias.<br />Crie um novo projeto para editar de novo.</div>
+          ) : lastDone ? (
             <video key={lastDone.id} controls playsInline className="max-h-[70vh] rounded-lg bg-black" style={{ aspectRatio: ASPECT[p.format] }} src={`/api/jobs/${lastDone.id}/download?inline`} />
           ) : p.analysis?.frames ? (
             <div className="grid w-full grid-cols-3 gap-2">
@@ -112,15 +115,16 @@ export function ProjectView({ id }: { id: string }) {
           {active?.type === "render" ? (
             <Progress job={active} onCancel={() => post(`/api/jobs/${active.id}/cancel`)} />
           ) : (
-            <button className="btn w-full" disabled={busy || !edl || !!active} onClick={() => post(`/api/projects/${id}/render`)}>
+            <button className="btn w-full" disabled={busy || !edl || !!active || expired} onClick={() => post(`/api/projects/${id}/render`)}>
               {lastDone ? "Exportar de novo" : "Exportar vídeo"}
             </button>
           )}
-          {lastRender && lastRender.status === "error" && !active && (
+          {!expired && <p className="mt-2 text-center text-[11px] text-smoke">Baixe no celular: os vídeos são apagados 2 dias após a última atividade.</p>}
+          {lastRender && lastRender.status === "error" && !active && !expired && (
             <div className="mt-3 text-sm text-red-400">Falhou após {lastRender.attempts} tentativa(s): <span title={lastRender.error ?? ""}>{lastRender.error?.slice(0, 160)}</span> <button className="btn-ghost mt-2" onClick={() => post(`/api/projects/${id}/render`)}>Tentar de novo</button></div>
           )}
           {lastRender?.status === "cancelled" && !active && <p className="mt-3 text-sm text-smoke">Última exportação cancelada.</p>}
-          {lastDone && (
+          {lastDone && !expired && (
             <div className="mt-4 space-y-3">
               <a className="btn w-full !bg-paper" href={`/api/jobs/${lastDone.id}/download`}>⬇ Baixar MP4 (v{lastDone.edl_version})</a>
               {lastDone.qc && (
@@ -140,7 +144,7 @@ export function ProjectView({ id }: { id: string }) {
         <div className="flex h-[520px] flex-col rounded-2xl border border-line bg-panel">
           <div className="flex items-center justify-between border-b border-line p-4">
             <h2 className="label !mb-0">Director Chat</h2>
-            <button className="btn-ghost !py-1" disabled={busy || !s.canUndo || !!active} onClick={() => post(`/api/projects/${id}/undo`)}>↶ Desfazer</button>
+            <button className="btn-ghost !py-1" disabled={busy || !s.canUndo || !!active || expired} onClick={() => post(`/api/projects/${id}/undo`)}>↶ Desfazer</button>
           </div>
           <div ref={chatRef} className="flex-1 space-y-3 overflow-y-auto p-4 text-sm">
             {s.messages.length === 0 && <p className="text-smoke">O plano aparece aqui depois da análise.</p>}
@@ -149,7 +153,7 @@ export function ProjectView({ id }: { id: string }) {
             ))}
           </div>
           <form className="flex gap-2 border-t border-line p-3" onSubmit={async (e) => { e.preventDefault(); if (!msg.trim()) return; const t = msg; setMsg(""); if (!(await post(`/api/projects/${id}/chat`, { message: t }))) setMsg(t); }}>
-            <input className="input !py-2" value={msg} onChange={(e) => setMsg(e.target.value)} placeholder={edl ? 'Ex.: "preço R$ 3.999, legenda maior"' : "Aguardando análise…"} disabled={!edl || busy || !!active} maxLength={2000} />
+            <input className="input !py-2" value={msg} onChange={(e) => setMsg(e.target.value)} placeholder={edl ? 'Ex.: "preço R$ 3.999, legenda maior"' : "Aguardando análise…"} disabled={!edl || busy || !!active || expired} maxLength={2000} />
             <button className="btn !px-4 !py-2" disabled={!edl || busy || !!active || !msg.trim()}>{busy ? "…" : "→"}</button>
           </form>
         </div>
