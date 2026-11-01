@@ -19,6 +19,7 @@ export async function configProblems(): Promise<string[]> {
     if (error) {
       const msg = `${error.code ?? ""} ${error.message ?? ""}`;
       if (/PGRST205|42P01|does not exist|schema cache/i.test(msg)) p.push("As tabelas não existem no Supabase: rode o arquivo supabase/setup_nuvem.sql no SQL Editor.");
+      else if (/PGRST125|Invalid path/i.test(msg)) p.push("SUPABASE_URL deve ser só a base do projeto, ex.: https://abcd.supabase.co (sem /rest/v1).");
       else if (/fetch failed|ENOTFOUND|ECONNREFUSED|getaddrinfo/i.test(msg)) p.push("Não consegui conectar ao Supabase: confira SUPABASE_URL (ex.: https://abcd.supabase.co).");
       else if (/JWT|apikey|key|401|403|PGRST301/i.test(msg)) p.push("Chave do Supabase recusada: confira SUPABASE_SERVICE_ROLE_KEY (use a chave secret, não a publishable/anon).");
       else p.push(`Supabase respondeu com erro: ${msg.trim().slice(0, 160)}`);
