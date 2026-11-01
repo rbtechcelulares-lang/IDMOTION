@@ -18,7 +18,7 @@ export async function narrationFile(text: string, voiceId?: string): Promise<{ f
     if (cached && fs.existsSync(cached)) return { file: cached, note: "Narração reaproveitada do cache." };
   }
 
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
+  const res = await fetch(`${process.env.ELEVENLABS_API_URL || "https://api.elevenlabs.io"}/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
     method: "POST",
     headers: { "xi-api-key": key, "content-type": "application/json", accept: "audio/mpeg" },
     body: JSON.stringify({ text, model_id: model }),
@@ -29,4 +29,12 @@ export async function narrationFile(text: string, voiceId?: string): Promise<{ f
   await fs.promises.writeFile(file, Buffer.from(await res.arrayBuffer()));
   await db.from("tts_cache").upsert({ hash, path: await store(file, "audio/mpeg") });
   return { file, note: "Narração gerada (ElevenLabs)." };
+}
+
+/** Duração de um arquivo de áudio (s). */
+export async function audioDuration(file: string): Promise<number> {
+  const { run } = await import("./proc");
+  const { FFPROBE } = await import("./env");
+  const { stdout } = await run(FFPROBE, ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]);
+  return Number(stdout.trim()) || 0;
 }

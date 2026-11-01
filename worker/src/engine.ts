@@ -94,7 +94,7 @@ async function fixLoudness(file: string, target = -14) {
 }
 
 /** Base do vídeo 100% motion: fundo preto (o Remotion pinta tudo por cima) + trilha/narração mixadas. */
-export async function buildMotionBase(edl: Edl, inp: { music?: string | null; narration?: string | null }, out: string, onProgress: (p: number) => void) {
+export async function buildMotionBase(edl: Edl, inp: { music?: string | null; narration?: string | null; narrationDelay?: number }, out: string, onProgress: (p: number) => void) {
   const { width: W, height: H } = FORMAT_SIZE[edl.format];
   const total = edlDuration(edl);
   const args = ["-y", "-hide_banner", "-loglevel", "error", "-stats", "-stats_period", "0.5", "-f", "lavfi", "-i", `color=c=black:s=${W}x${H}:r=${edl.fps}:d=${f3(total)}`];
@@ -110,7 +110,8 @@ export async function buildMotionBase(edl: Edl, inp: { music?: string | null; na
   }
   if (edl.audio.narration && inp.narration) {
     args.push("-i", inp.narration);
-    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay=400|400,volume=${edl.audio.narration.volume.toFixed(3)},atrim=0:${f3(total)}[nar]`);
+    const nd = Math.round((inp.narrationDelay ?? 0.4) * 1000);
+    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay=${nd}|${nd},volume=${edl.audio.narration.volume.toFixed(3)},atrim=0:${f3(total)}[nar]`);
     mix.push("[nar]");
     idx++;
   }

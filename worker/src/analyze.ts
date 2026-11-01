@@ -11,7 +11,7 @@ import type { Edl } from "../../shared/edl";
 
 /** Caixa "Narração ElevenLabs" no Novo Projeto ("narração: auto"): escreve a narração a partir do plano. */
 function autoNarration(edl: Edl, instructions: string) {
-  if (/narra[çc][aã]o\s*[:=]\s*auto/i.test(instructions || "") && (!edl.audio.narration || edl.audio.narration.text === "auto")) edl.audio.narration = { text: buildNarration(edl), volume: 1 };
+  if (/narra[çc][aã]o\s*[:=]\s*auto/i.test(instructions || "") && (!edl.audio.narration || edl.audio.narration.text === "auto")) edl.audio.narration = { text: buildNarration(edl), volume: 1, custom: false };
   return edl;
 }
 

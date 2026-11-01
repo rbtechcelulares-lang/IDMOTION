@@ -3,15 +3,19 @@ import type { Edl } from "../edl";
 const plain = (s: string) => s.replace(/[*~]/g, "").replace(/\s+/g, " ").trim();
 const sentence = (s: string) => { const t = plain(s); return /[.!?]$/.test(t) ? t : `${t}.`; };
 
+type Scene = NonNullable<Edl["motion"]>["scenes"][number];
+/** O que a voz fala numa cena: exatamente o texto da tela. */
+export function sceneLine(s: Scene): string {
+  if (s.kind === "compare" && s.compare) return `${s.compare.left.label} ${s.compare.left.value}. ${s.compare.right.label}: ${s.compare.right.value}.`;
+  if (s.kind === "price" || s.kind === "counter") return sentence(`${s.sub ? `${s.sub} ` : ""}${s.text}`);
+  return sentence(`${s.text}${s.sub && s.kind !== "title" ? `. ${s.sub}` : ""}`);
+}
+
 /** Texto de narração escrito a partir do plano (cenas do motion ou abertura/preço/CTA do vídeo). */
 export function buildNarration(edl: Edl): string {
   const parts: string[] = [];
   if (edl.mode === "motion") {
-    for (const s of edl.motion?.scenes ?? []) {
-      if (s.kind === "compare" && s.compare) parts.push(`${s.compare.left.label} ${s.compare.left.value}. ${s.compare.right.label}: ${s.compare.right.value}.`);
-      else if (s.kind === "price" || s.kind === "counter") parts.push(sentence(`${s.sub ? `${s.sub} ` : ""}${s.text}`));
-      else parts.push(sentence(`${s.text}${s.sub && s.kind !== "title" ? `. ${s.sub}` : ""}`));
-    }
+    for (const s of edl.motion?.scenes ?? []) parts.push(sceneLine(s));
   } else {
     const o = edl.overlays;
     if (o.intro) parts.push(sentence(o.intro.text));

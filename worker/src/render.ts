@@ -8,7 +8,10 @@ import { clipDuration, edlDuration } from "../../shared/edl";
 import { composite, hasOverlay, renderOverlay } from "./overlay";
 import { killAll } from "./proc";
 import { runQc } from "./qc";
-import { narrationFile } from "./tts";
+import { audioDuration, narrationFile } from "./tts";
+import { sceneLine } from "../../shared/director/narration";
+import { FFMPEG } from "./env";
+import { run } from "./proc";
 import { STORAGE_MODE, ensureLocal, store } from "./storage";
 import type { Job, JobCtx } from "./jobs";
 
@@ -33,7 +36,30 @@ export async function runRender(job: Job, ctx: JobCtx) {
 
   const notes: string[] = [];
   let narration: string | null = null;
-  if (edl.audio.narration) {
+  let narrationDelay: number | undefined;
+  if (edl.mode === "motion" && edl.audio.narration && !edl.audio.narration.custom && edl.motion) {
+    // narração cena por cena: a voz fala o texto da tela no início de cada cena; cena estica se a fala for maior
+    await prog(0.02, "Narração cena por cena (ElevenLabs)", true);
+    const clips: { file: string; dur: number }[] = [];
+    for (const s of edl.motion.scenes) {
+      const r = await guard(() => narrationFile(sceneLine(s), edl.audio.narration!.voiceId));
+      if (!r.file) { notes.push(r.note ?? "Narração ignorada."); clips.length = 0; break; }
+      clips.push({ file: r.file, dur: await audioDuration(r.file) });
+    }
+    if (clips.length === edl.motion.scenes.length) {
+      const LEAD = 0.25, TAIL = 0.45;
+      let stretched = 0;
+      edl.motion.scenes.forEach((s, i) => { const need = +(clips[i].dur + LEAD + TAIL).toFixed(2); if (need > s.duration) { s.duration = Math.min(8, need); stretched++; } });
+      const starts: number[] = []; let acc = 0;
+      for (const s of edl.motion.scenes) { starts.push(acc); acc += s.duration; }
+      narration = path.join(dir, "narracao.wav");
+      const f = clips.map((c, i) => `[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay=${Math.round((starts[i] + LEAD) * 1000)}|${Math.round((starts[i] + LEAD) * 1000)}[n${i}]`);
+      f.push(`${clips.map((_, i) => `[n${i}]`).join("")}amix=inputs=${clips.length}:normalize=0:duration=longest,apad,atrim=0:${acc.toFixed(3)}[out]`);
+      await guard(() => run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", ...clips.flatMap((c) => ["-i", c.file]), "-filter_complex", f.join(";"), "-map", "[out]", "-ar", "48000", narration!]));
+      narrationDelay = 0;
+      notes.push(`Narração sincronizada: ${clips.length} falas${stretched ? `, ${stretched} cena(s) esticada(s) para caber a fala` : ""}.`);
+    }
+  } else if (edl.audio.narration) {
     await prog(0.02, "Narração", true);
     const r = await guard(() => narrationFile(edl.audio.narration!.text, edl.audio.narration!.voiceId));
     narration = r.file;
@@ -59,7 +85,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
   const base = path.join(dir, "base.mp4");
   let duration: number;
   if (edl.mode === "motion") {
-    duration = await guard(() => buildMotionBase(edl, { music, narration }, base, (x) => prog(0.05 + x * 0.1, "Trilha e mixagem (FFmpeg)")));
+    duration = await guard(() => buildMotionBase(edl, { music, narration, narrationDelay }, base, (x) => prog(0.05 + x * 0.1, "Trilha e mixagem (FFmpeg)")));
   } else {
     if (!p.source_path) throw Object.assign(new Error("projeto sem vídeo"), { fatal: true });
     const source = await guard(() => ensureLocal(p.source_path));

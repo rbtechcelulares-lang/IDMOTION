@@ -117,7 +117,7 @@ export function motionPlan(b: Brief): Edl {
     mode: "motion", format: b.format, preset: b.style, clips: [], motion: { theme, scenes: scenes.slice(0, 30) },
     captions: { enabled: false, position: "bottom", size: "md", items: [] },
     overlays: { intro: null, texts: [], price: null, cta: null },
-    audio: { sourceVolume: 1, music: musicFor(b, true), narration: p.narration ? { text: p.narration, volume: 1 } : null, normalize: true },
+    audio: { sourceVolume: 1, music: musicFor(b, true), narration: p.narration ? { text: p.narration, volume: 1, custom: true } : null, normalize: true },
     notes: `Vídeo 100% motion (sem vídeo-fonte).${reportLine(rep) ? ` Revisão: ${reportLine(rep)}` : ""}`.slice(0, 500),
   });
 }
@@ -208,7 +208,7 @@ export function heuristicPlan(a: Analysis, b: Brief): Edl {
     audio: {
       sourceVolume: 1,
       music: musicFor(b, false),
-      narration: p.narration ? { text: p.narration, volume: 1 } : null,
+      narration: p.narration ? { text: p.narration, volume: 1, custom: true } : null,
       normalize: true,
     },
     notes: "Plano heurístico (sem IA externa).",

@@ -2,6 +2,7 @@ import { type Edl, edlDuration } from "../edl";
 import { FORMATS, STYLES, type Format, type Style } from "../constants";
 import type { Analysis } from "./types";
 import { fixText } from "./textfix";
+import { buildNarration } from "./narration";
 import { trackFor, trackVolume, type Genre } from "./music";
 import { BG_WORDS, TEXTURE_WORDS, iconFor, type Background } from "../motion";
 
@@ -197,7 +198,8 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
   if ((m = low.match(/(?:volume|[aá]udio) (?:do )?(?:v[ií]deo|original|fala)[^\d]{0,10}(\d{1,3})\s*%/))) { edl.audio.sourceVolume = Math.min(2, Number(m[1]) / 100); done.push(`áudio original ${m[1]}%`); }
 
   if (/sem narra[çc][aã]o/.test(low)) { edl.audio.narration = null; done.push("narração removida"); }
-  else if ((m = text.match(/narra[çc][aã]o\s*[:=]\s*["“]?([^"”]+)/i))) { edl.audio.narration = { text: m[1].trim().slice(0, 2500), volume: 1, voiceId: edl.audio.narration?.voiceId }; done.push("narração definida"); }
+  else if (/narra[çc][aã]o\s*[:=]?\s*(auto|das cenas|sincronizada)/i.test(text)) { edl.audio.narration = { text: buildNarration(edl), volume: 1, voiceId: edl.audio.narration?.voiceId, custom: false }; done.push("narração sincronizada com as cenas"); }
+  else if ((m = text.match(/narra[çc][aã]o\s*[:=]\s*["“]?([^"”]+)/i))) { edl.audio.narration = { text: m[1].trim().slice(0, 2500), volume: 1, voiceId: edl.audio.narration?.voiceId, custom: true }; done.push("narração definida"); }
 
   void a;
   if (!done.length) return null;

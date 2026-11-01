@@ -77,3 +77,6 @@
 
 ## Narração ElevenLabs liga/desliga
 - Interruptor "Narração (ElevenLabs)" na tela do projeto (texto escrito a partir das cenas, editável) e caixa no Novo Projeto ("narração: auto"). Trilha abaixa sob a voz no vídeo motion. Cache por hash evita cobrar o mesmo texto de novo.
+
+## Narração sincronizada
+- Vídeo motion: a narração fala cena por cena exatamente o texto da tela, começando com a cena; cenas esticam para caber a fala (trilha e motion acompanham). Texto livre editado vira faixa única (custom). Chat: "narração: auto" volta a sincronizar.
