@@ -6,4 +6,5 @@ export const VOICES = [
   { id: "NQmLEqxcRTkWYIYZSYod", label: "Matheus — energético (masc.)" },
   { id: "Yu6uoFniEUcJhbrF7K1D", label: "Lari Diniz — anúncios animados (fem.)" },
   { id: "zxk5LWW71eFBR9Cep81P", label: "André — review de tecnologia (masc.)" },
+  { id: "HtFUbkhkGhVk2L0Z9I2L", label: "Javier Riveros — locutor chileno, comerciais (masc.)" },
 ];
