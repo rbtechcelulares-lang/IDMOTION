@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
-import { wakeWorker } from "@/lib/dispatch";
+import { wakeWorkerFor } from "@/lib/dispatch";
 import { isUuid } from "@/lib/files";
 
 // Enfileira a análise + direção inicial (executada pelo worker).
@@ -17,6 +17,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const { data, error } = await db().from("jobs").insert({ project_id: id, type: "analyze" }).select("id").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await db().from("projects").update({ status: "analyzing", error: null, updated_at: new Date().toISOString() }).eq("id", id);
-  await wakeWorker();
+  await wakeWorkerFor(data.id);
   return NextResponse.json({ jobId: data.id });
 }

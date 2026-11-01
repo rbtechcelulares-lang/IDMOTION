@@ -21,3 +21,22 @@ export async function wakeWorker() {
     return { ok: false };
   }
 }
+
+/** Acorda o motor e, se falhar, registra o motivo no job (aparece na barra de progresso). */
+export async function wakeWorkerFor(jobId: string) {
+  const r = await wakeWorker();
+  let msg: string | null = null;
+  if ("skipped" in r && r.skipped) {
+    if (process.env.STORAGE === "s3" || process.env.STORAGE === "supabase") msg = "Motor não acionado: falta GITHUB_DISPATCH_TOKEN na Vercel (ou rode o workflow 'worker' no GitHub → Actions).";
+  } else if (!r.ok) {
+    const s = "status" in r ? r.status : undefined;
+    msg = s === 401 ? "Motor não acionado: token do GitHub inválido ou expirado (GITHUB_DISPATCH_TOKEN)."
+      : s === 403 || s === 404 ? "Motor não acionado: o token do GitHub precisa de acesso ao repositório IDMOTION com Contents: Read and write."
+      : `Motor não acionado: GitHub respondeu ${s ?? "sem conexão"}.`;
+  }
+  if (msg) {
+    const { db } = await import("./supabase");
+    await db().from("jobs").update({ stage: msg }).eq("id", jobId).eq("status", "queued");
+  }
+  return r;
+}
