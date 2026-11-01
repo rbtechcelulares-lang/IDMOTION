@@ -22,16 +22,26 @@ export const MotionVideo: React.FC<{ edl: Edl }> = ({ edl }) => {
   const { fps } = useVideoConfig();
   const scenes = edl.motion?.scenes ?? [];
   const theme: Theme = edl.motion?.theme ?? { bg: "glow", texture: "grain", floaters: null };
+  // linha do tempo das cenas (frames)
+  const spans: { from: number; dur: number; bg: Background }[] = [];
+  let acc = 0;
+  for (const s of scenes) { const dur = Math.max(1, Math.round(s.duration * fps)); spans.push({ from: acc, dur, bg: s.bg ?? theme.bg }); acc += dur; }
+  const FADE = 10;
   let from = 0;
   return (
     <AbsoluteFill style={{ fontFamily: LOOK[edl.preset].font }}>
       <BackgroundLayer bg={theme.bg} texture={theme.texture} preset={edl.preset} />
-      {theme.floaters && <Floaters items={theme.floaters.items} bg={theme.bg} />}
+      {/* fundo contínuo: cada cena cobre até FADE frames além do seu fim e entra com fade por cima da anterior — sem "piscar" o fundo base */}
+      {spans.map((sp, i) => (i === 0 && sp.bg === theme.bg) || (i > 0 && sp.bg === spans[i - 1].bg && sp.bg === theme.bg) ? null : (
+        <Sequence key={`bg${i}`} from={sp.from} durationInFrames={sp.dur + (i < spans.length - 1 ? FADE : 0)}>
+          <SceneBg bg={sp.bg} texture={theme.texture} preset={edl.preset} fadeIn={i === 0 || spans[i - 1].bg === sp.bg ? 0 : FADE} />
+        </Sequence>
+      ))}
+      {theme.floaters && <Floaters items={theme.floaters.items} bgAt={(f) => (spans.find((sp) => f >= sp.from && f < sp.from + sp.dur) ?? spans[spans.length - 1])?.bg ?? theme.bg} />}
       {scenes.map((s, i) => {
         const dur = Math.max(1, Math.round(s.duration * fps));
         const el = (
           <Sequence key={i} from={from} durationInFrames={dur}>
-            {s.bg && s.bg !== theme.bg && <SceneBg bg={s.bg} texture={theme.texture} preset={edl.preset} dur={dur} />}
             <SceneView edl={edl} scene={s} bg={s.bg ?? theme.bg} index={i} total={scenes.length} dur={dur} />
           </Sequence>
         );
@@ -224,9 +234,9 @@ function TextureLayer({ texture, light, u, frame }: { texture: Texture; light: b
   return <AbsoluteFill style={css[texture]} />;
 }
 
-function SceneBg({ bg, texture, preset, dur }: { bg: Background; texture: Texture; preset: Edl["preset"]; dur: number }) {
+function SceneBg({ bg, texture, preset, fadeIn }: { bg: Background; texture: Texture; preset: Edl["preset"]; fadeIn: number }) {
   const frame = useCurrentFrame();
-  const o = Math.min(interpolate(frame, [0, 8], [0, 1], clamp), interpolate(frame, [dur - 8, dur], [1, 0], clamp));
+  const o = fadeIn ? interpolate(frame, [0, fadeIn], [0, 1], clamp) : 1;
   return <AbsoluteFill style={{ opacity: o }}><BackgroundLayer bg={bg} texture={texture} preset={preset} /></AbsoluteFill>;
 }
 
@@ -238,11 +248,11 @@ function Glyph({ name, size, color, glow, stroke = 1.6 }: { name: string; size: 
 }
 
 /** Ícones/emojis flutuando com profundidade (desfoque nos distantes). */
-function Floaters({ items, bg }: { items: string[]; bg: Background }) {
+function Floaters({ items, bgAt }: { items: string[]; bgAt: (frame: number) => Background }) {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const u = Math.min(width, height) / 1080;
-  const pal = palette(bg);
+  const pal = palette(bgAt(frame)); // cor dos ícones acompanha o fundo da cena atual
   const N = 12;
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -343,6 +353,7 @@ function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Sce
     padding: `${layout === "top" ? height * 0.14 : 0}px ${80 * u}px ${layout === "bottom" ? height * 0.13 : 0}px`, opacity: out, color: pal.fg, gap: 28 * u,
   };
   const visualEl = scene.visual && scene.visual !== "none" ? <PhonesVisual kind={scene.visual} area={layout === "top" ? "lower" : layout === "bottom" ? "upper" : "middle"} /> : null;
+  const subText = (scene.sub ?? "").replace(/[*~]/g, ""); // marcações de destaque não aparecem no subtítulo
   const subStyle: React.CSSProperties = { fontSize: 48 * u, fontWeight: 600, color: pal.light ? "#333" : "#d9d9d9", opacity: fadeIn, textAlign: align, maxWidth: "100%" };
 
   const iconEl = scene.icon && scene.kind !== "cta" ? (
@@ -373,7 +384,7 @@ function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Sce
     return (
       <AbsoluteFill style={{ ...wrap, alignItems: "center" }}>
         {visualEl}
-        {scene.sub && <div style={{ ...subStyle, textAlign: "center" }}>{scene.sub}</div>}
+        {scene.sub && <div style={{ ...subStyle, textAlign: "center" }}>{subText}</div>}
         <div style={{ display: "flex", alignItems: "center", gap: 18 * u }}>
           {card(scene.compare.left, false, 4)}
           <div style={{ width: 84 * u, height: 84 * u, borderRadius: 999, background: INK, color: pal.light ? "#fff" : YELLOW, border: `${3 * u}px solid ${YELLOW}`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 32 * u, zIndex: 2, opacity: fadeIn }}>VS</div>
@@ -399,7 +410,7 @@ function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Sce
             const on = k / dots <= prog;
             return <div key={k} style={{ position: "absolute", left: R + Math.cos(a) * R - 9 * u, top: R + Math.sin(a) * R - 9 * u, width: 18 * u, height: 18 * u, borderRadius: 99, background: on ? pal.accent : "transparent", border: on ? undefined : `${2 * u}px solid ${pal.light ? "#bbb" : "#555"}`, boxShadow: on && !pal.light ? `0 0 ${14 * u}px ${pal.glow}` : undefined }} />;
           })}
-          {scene.sub && <div style={{ fontSize: 46 * u, fontWeight: 600, color: pal.light ? "#333" : "#e5e5e5", opacity: fadeIn }}>{scene.sub}</div>}
+          {scene.sub && <div style={{ fontSize: 46 * u, fontWeight: 600, color: pal.light ? "#333" : "#e5e5e5", opacity: fadeIn }}>{subText}</div>}
           <div style={{ fontSize: size * 0.82, fontWeight: 900, color: pal.accent, textShadow: pal.light ? undefined : `0 0 ${30 * u}px ${pal.glow}`, whiteSpace: "nowrap" }}>{prefix}{shown}</div>
         </div>
       </AbsoluteFill>
@@ -429,7 +440,7 @@ function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Sce
         <div style={{ position: "relative", transform: `scale(${s * pulse})`, background: pal.light && bg === "yellow" ? INK : `linear-gradient(180deg, #ffe46b 0%, ${YELLOW} 55%, #e2b400 100%)`, color: bg === "yellow" ? YELLOW : INK, borderRadius: 999, padding: `${30 * u}px ${64 * u}px`, boxShadow: pal.light ? "0 12px 30px rgba(0,0,0,.2)" : `0 0 ${50 * u}px rgba(255,214,10,.45)`, fontWeight: 900, fontSize: Math.min(76 * u, size), textTransform: "uppercase", textAlign: "center", maxWidth: width * 0.86 }}>
           {plain}
         </div>
-        {scene.sub && <div style={subStyle}>{scene.sub}</div>}
+        {scene.sub && <div style={subStyle}>{subText}</div>}
         <svg width={70 * u} height={70 * u} viewBox="0 0 24 24" style={{ transform: `translateY(${arrowY}px)`, opacity: fadeIn }}>
           <path d="M12 4v15M6 13l6 6 6-6" fill="none" stroke={pal.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -442,9 +453,9 @@ function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Sce
       <AbsoluteFill style={wrap}>
         {visualEl}
         {iconEl}
-        {scene.sub && <div style={subStyle}>{scene.sub}</div>}
-        <div style={{ transform: `scale(${preset === "viral" ? 0.6 + 0.4 * s : 1}) rotate(${preset === "viral" ? (1 - s) * -8 - 2 : 0}deg)`, background: preset === "viral" ? (pal.light ? INK : YELLOW) : "transparent", padding: preset === "viral" ? `${10 * u}px ${36 * u}px` : 0, borderRadius: 20 * u }}>
-          <div style={{ fontSize: size, fontWeight: 900, whiteSpace: "nowrap", color: preset === "viral" ? (pal.light ? YELLOW : INK) : pal.accent, textShadow: preset !== "viral" && !pal.light ? `0 0 ${30 * u}px ${pal.glow}` : undefined, transform: `translateY(${(1 - s) * 30 * u}px)`, opacity: fadeIn }}>{plain}</div>
+        {scene.sub && <div style={subStyle}>{subText}</div>}
+        <div style={{ transform: `scale(${preset === "viral" ? 0.6 + 0.4 * s : 1}) rotate(${preset === "viral" ? (1 - s) * -8 - 2 : 0}deg)`, opacity: preset === "viral" ? Math.min(1, s * 2.5) : 1, background: preset === "viral" ? (pal.light ? INK : YELLOW) : "transparent", padding: preset === "viral" ? `${10 * u}px ${36 * u}px` : 0, borderRadius: 20 * u }}>
+          <div style={{ fontSize: size, fontWeight: 900, whiteSpace: "nowrap", color: preset === "viral" ? (pal.light ? YELLOW : INK) : pal.accent, textShadow: preset !== "viral" && !pal.light ? `0 0 ${30 * u}px ${pal.glow}` : undefined, transform: preset === "viral" ? undefined : `translateY(${(1 - s) * 30 * u}px)`, opacity: preset === "viral" ? 1 : fadeIn }}>{plain}</div>
         </div>
       </AbsoluteFill>
     );
@@ -458,7 +469,7 @@ function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Sce
       {counter && !iconEl && <div style={{ fontSize: 40 * u, fontWeight: 800, color: pal.accent, letterSpacing: 4 * u, opacity: fadeIn }}>{counter}</div>}
       {scene.kind === "title" && !iconEl && <div style={{ height: 8 * u, width: interpolate(frame, [4, 22], [0, 170], clamp) * u, background: pal.accent }} />}
       <RichText text={scene.text} size={size} color={pal.fg} accent={pal.accent} mark={pal.mark} preset={preset} align={align} anim={scene.anim} />
-      {scene.sub && <div style={{ ...subStyle, fontWeight: 700, color: preset === "viral" && !pal.light ? INK : subStyle.color, background: preset === "viral" && !pal.light ? YELLOW : undefined, padding: preset === "viral" ? `${6 * u}px ${18 * u}px` : 0, textTransform: preset === "viral" ? "uppercase" : "none" }}>{scene.sub}</div>}
+      {scene.sub && <div style={{ ...subStyle, fontWeight: 700, color: preset === "viral" && !pal.light ? INK : subStyle.color, background: preset === "viral" && !pal.light ? YELLOW : undefined, padding: preset === "viral" ? `${6 * u}px ${18 * u}px` : 0, textTransform: preset === "viral" ? "uppercase" : "none" }}>{subText}</div>}
     </AbsoluteFill>
   );
 }

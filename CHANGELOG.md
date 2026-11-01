@@ -88,3 +88,7 @@
 
 ## Narração animada
 - Tom da narração (Animado padrão, Neutro, Calmo) com voice_settings expressivos; texto falável para a voz (sem caixa alta, "599 reais", "12 vezes", "3 de novembro", exclamação no gancho/preço/CTA). Seletor de tom no quadro de narração e chat ("narração animada|neutra|calma").
+
+## Fundo contínuo e preços falados por extenso
+- Fundos por cena agora em camada contínua com transição (sem "piscar" o fundo base entre cenas); ícones flutuantes mudam de cor conforme o fundo da cena; selo de preço entra junto com o valor; subtítulos sem asteriscos.
+- Narração: números por extenso em português (preços com reais e centavos, parcelas, datas, anos, porcentagens).

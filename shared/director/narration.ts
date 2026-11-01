@@ -26,6 +26,29 @@ export function buildNarration(edl: Edl): string {
 }
 
 export type Tone = "animado" | "neutro" | "calmo";
+
+const UN = ["zero", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "catorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
+const DEZ = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
+const CEN = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos", "oitocentos", "novecentos"];
+function ate999(n: number): string {
+  if (n < 20) return UN[n];
+  if (n < 100) return DEZ[Math.floor(n / 10)] + (n % 10 ? ` e ${UN[n % 10]}` : "");
+  if (n === 100) return "cem";
+  return CEN[Math.floor(n / 100)] + (n % 100 ? ` e ${ate999(n % 100)}` : "");
+}
+/** Número inteiro por extenso em português (até 999 milhões). Ex.: 4299 → "quatro mil duzentos e noventa e nove". */
+export function numPt(n: number): string {
+  n = Math.floor(Math.abs(n));
+  if (n < 1000) return ate999(n);
+  if (n < 1_000_000) {
+    const mil = Math.floor(n / 1000), resto = n % 1000;
+    const head = mil === 1 ? "mil" : `${ate999(mil)} mil`;
+    return resto ? `${head}${resto < 100 || resto % 100 === 0 ? " e " : " "}${ate999(resto)}` : head;
+  }
+  const mi = Math.floor(n / 1_000_000), resto = n % 1_000_000;
+  const head = mi === 1 ? "um milhão" : `${ate999(mi)} milhões`;
+  return resto ? `${head} ${resto < 100 ? "e " : ""}${numPt(resto)}` : head;
+}
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 /**
@@ -36,10 +59,16 @@ export function speakable(text: string, tone: Tone = "animado", kind?: string): 
   let t = text.replace(/[*~]/g, "").replace(/\s+/g, " ").trim();
   const letters = t.replace(/[^A-Za-zÀ-ú]/g, "");
   const allCaps = letters.length > 4 && letters === letters.toUpperCase();
-  t = t.replace(/R\$\s?(\d{1,3}(?:\.\d{3})*)(?:,(\d{2}))?/g, (_m, r, c) => `${r.replace(/\./g, "")} ${r === "1" ? "real" : "reais"}${c && c !== "00" ? ` e ${Number(c)} centavos` : ""}`);
-  t = t.replace(/\b(\d{1,2})\s?x\b/gi, "$1 vezes");
-  t = t.replace(/\b(\d{1,2})\/(\d{1,2})\b/g, (m, d, mo) => (Number(mo) >= 1 && Number(mo) <= 12 ? `${Number(d)} de ${MESES[Number(mo) - 1]}` : m));
-  t = t.replace(/(\d+)\s?%/g, "$1 por cento");
+  // preços: "R$ 4.299,90", "R$ 599", "499,90 reais" → por extenso
+  const reais = (r: string, c?: string) => { const n = Number(r.replace(/\./g, "")); const cv = c ? Number(c) : 0; return `${numPt(n)} ${n === 1 ? "real" : "reais"}${cv ? ` e ${numPt(cv)} ${cv === 1 ? "centavo" : "centavos"}` : ""}`; };
+  t = t.replace(/R\$\s?(\d{1,3}(?:\.\d{3})*|\d+)(?:,(\d{2}))?/g, (_m, r, c) => reais(r, c));
+  t = t.replace(/\b(\d{1,3}(?:\.\d{3})*|\d+),(\d{2})\s*(?:reais|real)\b/gi, (_m, r, c) => reais(r, c));
+  t = t.replace(/\b(\d{1,3}(?:\.\d{3})*|\d+)\s*(reais|real)\b/gi, (_m, r) => reais(r));
+  t = t.replace(/\b(\d{1,2})\s?x\b/gi, (_m, n) => `${numPt(Number(n))} vezes`);
+  t = t.replace(/\b(\d{1,2})\/(\d{1,2})\b/g, (m, d, mo) => (Number(mo) >= 1 && Number(mo) <= 12 ? `${Number(d) === 1 ? "primeiro" : numPt(Number(d))} de ${MESES[Number(mo) - 1]}` : m));
+  t = t.replace(/(\d+)\s?%/g, (_m, n) => `${numPt(Number(n))} por cento`);
+  // "1 ano" → "um ano", "10 primeiras" → "dez primeiras" (números soltos que sobraram)
+  t = t.replace(/\b(\d{1,6})\b/g, (_m, n) => numPt(Number(n)));
   // depois das conversões: CAIXA ALTA → normal (mantém siglas curtas e marcas)
   if (allCaps) t = t.toLowerCase().replace(/(^|[.!?]\s+)(\p{L})/gu, (_m, a, b) => a + b.toUpperCase());
   t = t.replace(/\biphones?\b/gi, (m) => (m.toLowerCase().endsWith("s") ? "iPhones" : "iPhone")).replace(/\brb ?tech\b/gi, "RBTech").replace(/\bvip\b/gi, "VIP");

@@ -292,10 +292,13 @@ test("cérebro por projeto: corrente Opus → Haiku → Gemini e escolha 'regras
 
 test("narração animada: texto falável (sem caixa alta, valores por extenso, exclamação)", async () => {
   const { speakable } = await import("../shared/director/narration");
-  assert.equal(speakable("IPHONES A PARTIR DE R$ 599.", "animado", "price"), "iPhones a partir de 599 reais!");
-  assert.equal(speakable("É DIA 03/11 NA RB TECH!", "animado", "feature"), "É dia 3 de novembro na RBTech!");
-  assert.equal(speakable("Parcele em 12x no cartão.", "animado", "feature"), "Parcele em 12 vezes no cartão.");
+  assert.equal(speakable("IPHONES A PARTIR DE R$ 599.", "animado", "price"), "iPhones a partir de quinhentos e noventa e nove reais!");
+  assert.equal(speakable("iPhones a partir de R$ 499,90", "animado", "price"), "iPhones a partir de quatrocentos e noventa e nove reais e noventa centavos!");
+  assert.equal(speakable("De R$ 4.299 por R$ 3.999", "animado", "price"), "De quatro mil duzentos e noventa e nove reais por três mil novecentos e noventa e nove reais!");
+  assert.equal(speakable("É DIA 03/11 NA RB TECH!", "animado", "feature"), "É dia três de novembro na RBTech!");
+  assert.equal(speakable("Parcele em 12x no cartão.", "animado", "feature"), "Parcele em doze vezes no cartão.");
+  assert.equal(speakable("Até 1 ano de garantia nas 10 primeiras", "animado", "feature"), "Até um ano de garantia nas dez primeiras!");
   assert.equal(speakable("Chama no WhatsApp.", "animado", "cta"), "Chama no WhatsApp!");
-  assert.equal(speakable("R$ 1,26 por dia", "calmo", "counter"), "1 real e 26 centavos por dia.");
+  assert.equal(speakable("R$ 1,26 por dia", "calmo", "counter"), "um real e vinte e seis centavos por dia.");
   assert.equal(speakable("Você está preparado?", "animado", "title"), "Você está preparado?");
 });
