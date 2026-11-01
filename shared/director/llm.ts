@@ -96,18 +96,19 @@ export function anthropicAsker(apiKey: string, model = process.env.AI_MODEL || "
 }
 
 /** Qualquer API compatível com OpenAI Chat Completions (Gemini, Groq, Cloudflare Workers AI, OpenRouter…). */
-export function openAiCompatAsker(o: { baseUrl: string; apiKey: string; model: string; label: string }): Asker {
+export function openAiCompatAsker(o: { baseUrl: string; apiKey: string; model: string; label: string; fallbackModels?: string[] }): Asker {
   const url = `${o.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-  return {
-    name: `${o.label}:${o.model}`,
+  const models = [...new Set([o.model, ...(o.fallbackModels ?? [])].filter(Boolean))];
+  const one = (model: string): Asker => ({
+    name: `${o.label}:${model}`,
     async ask(system, parts) {
       const content = parts.map((p) => (p.type === "text" ? { type: "text", text: p.text } : { type: "image_url", image_url: { url: `data:image/jpeg;base64,${p.jpegBase64}` } }));
       const call = async (json: boolean) => {
         const res = await fetch(url, {
           method: "POST",
           headers: { authorization: `Bearer ${o.apiKey}`, "content-type": "application/json" },
-          body: JSON.stringify({ model: o.model, temperature: 0.7, messages: [{ role: "system", content: system }, { role: "user", content }], ...(json ? { response_format: { type: "json_object" } } : {}) }),
-          signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 90000)),
+          body: JSON.stringify({ model, temperature: 0.7, messages: [{ role: "system", content: system }, { role: "user", content }], ...(json ? { response_format: { type: "json_object" } } : {}) }),
+          signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 45000)),
         });
         if (!res.ok) throw Object.assign(new Error(`${o.label} ${res.status}: ${(await res.text()).slice(0, 200)}`), { status: res.status });
         const j = (await res.json()) as { choices?: { message?: { content?: string | { text?: string }[] } }[] };
@@ -116,6 +117,23 @@ export function openAiCompatAsker(o: { baseUrl: string; apiKey: string; model: s
       };
       const wantsArray = /JSON array/.test(system); // json_object não aceita array na raiz
       try { return await call(!wantsArray); } catch (e) { if ((e as { status?: number }).status === 400 && !wantsArray) return call(false); throw e; }
+    },
+  });
+  // modelos de reserva: se um estiver indisponível (404), sobrecarregado (503/429) ou lento, tenta o próximo
+  return {
+    name: `${o.label}:${models[0]}`,
+    async ask(system, parts) {
+      let last: unknown;
+      for (const m of models) {
+        try { return await one(m).ask(system, parts); }
+        catch (e) {
+          last = e;
+          const st = (e as { status?: number }).status;
+          if (st === 401 || st === 403) throw e; // chave inválida: não adianta trocar de modelo
+          console.warn(`[ia] ${m} falhou (${st ?? (e as Error).name}); tentando o próximo modelo`);
+        }
+      }
+      throw last;
     },
   };
 }

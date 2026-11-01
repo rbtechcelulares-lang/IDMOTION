@@ -224,14 +224,37 @@ test("Gemini (API compatível com OpenAI): cérebro criativo devolve plano motio
     });
   }).listen(0);
   const port = (server.address() as { port: number }).port;
-  const d = new LlmDirector(openAiCompatAsker({ baseUrl: `http://127.0.0.1:${port}/v1beta/openai`, apiKey: "chave-teste", model: "gemini-2.5-flash", label: "gemini" }));
+  const d = new LlmDirector(openAiCompatAsker({ baseUrl: `http://127.0.0.1:${port}/v1beta/openai`, apiKey: "chave-teste", model: "gemini-flash-latest", label: "gemini" }));
   const edl = await d.plan(a, { ...b, hasVideo: false, style: "cinematic", instructions: "Cena 1\n“VOCÊ ESTÁ PREPARADO?”" });
   server.close();
-  assert.equal(d.name, "gemini:gemini-2.5-flash");
+  assert.equal(d.name, "gemini:gemini-flash-latest");
   assert.equal(seen[0].auth, "Bearer chave-teste");
   assert.equal(seen[0].json, true);
   assert.match(seen[0].system!, /BRIEFING/);
   assert.equal(edl.motion!.scenes.length, 4);
   assert.equal(edl.motion!.scenes[1].text, "R$ 599");
   assert.ok(edl.audio.music?.track, "sem trilha enviada → diretor coloca trilha gerada");
+});
+
+test("IA: modelo indisponível/sobrecarregado → tenta o próximo; chave inválida → para", async () => {
+  const { openAiCompatAsker } = await import("../shared/director/llm");
+  const tried: string[] = [];
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      const m = JSON.parse(body).model; tried.push(m);
+      if (m === "m404") { res.statusCode = 404; return res.end("no longer available"); }
+      if (m === "m503") { res.statusCode = 503; return res.end("high demand"); }
+      if (m === "bad") { res.statusCode = 401; return res.end("API key not valid"); }
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }));
+    });
+  }).listen(0);
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const ok = await openAiCompatAsker({ baseUrl: base, apiKey: "k", model: "m404", fallbackModels: ["m503", "bom"], label: "g" }).ask("JSON", [{ type: "text", text: "oi" }]);
+  assert.match(ok, /ok/);
+  assert.deepEqual(tried, ["m404", "m503", "bom"]);
+  await assert.rejects(openAiCompatAsker({ baseUrl: base, apiKey: "k", model: "bad", fallbackModels: ["bom"], label: "g" }).ask("JSON", [{ type: "text", text: "oi" }]), /401/);
+  server.close();
 });
