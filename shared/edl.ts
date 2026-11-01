@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FORMATS, STYLES } from "./constants";
-import { BACKGROUNDS, TEXTURES } from "./motion";
+import { ANIMS, BACKGROUNDS, LAYOUTS, TEXTURES, VISUALS } from "./motion";
 
 /** EDL (Edit Decision List) do ID MOTION. Tempos em segundos. */
 export const ClipSchema = z.object({
@@ -26,6 +26,9 @@ export const MotionSceneSchema = z.object({
   icon: z.string().max(40).optional(), // nome de ícone (Lucide) ou emoji
   bg: z.enum(BACKGROUNDS).optional(), // fundo só desta cena
   compare: z.object({ left: CompareSide, right: CompareSide }).optional(),
+  layout: z.enum(LAYOUTS).optional(), // posição do texto
+  anim: z.enum(ANIMS).optional(), // animação de entrada do texto
+  visual: z.enum(VISUALS).optional(), // iPhones desenhados animados
 });
 export const MotionThemeSchema = z.object({
   bg: z.enum(BACKGROUNDS).default("glow"),

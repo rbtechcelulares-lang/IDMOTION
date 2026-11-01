@@ -55,7 +55,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   };
   await db.from("projects").update({ analysis }).eq("id", p.id);
 
-  const director = getDirector();
+  const director = getDirector(p.ai);
   await ctx.progress(0.75, `AI Director (${director.name})`, true);
   const brief: Brief = { name: p.name, format: p.format, style: p.style, objective: p.objective, instructions: p.instructions, hasMusic: !!p.music_path, hasVideo: !!p.source_path };
   const jpegs = await Promise.all(frames.map(async (f) => ({ t: f.t, jpegBase64: (await fs.promises.readFile(f.file)).toString("base64") })));
@@ -74,7 +74,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
 async function planMotion(p: Record<string, any>, ctx: JobCtx) { // eslint-disable-line @typescript-eslint/no-explicit-any
   const analysis: Analysis = { duration: 0, width: 0, height: 0, fps: 30, hasAudio: false, scenes: [], silences: [], speech: [], words: null, transcript: "", transcriptProvider: "nenhum", frames: [], loudnessLufs: null };
   await db.from("projects").update({ analysis }).eq("id", p.id);
-  const director = getDirector();
+  const director = getDirector(p.ai);
   await ctx.progress(0.5, `AI Director (${director.name}) — vídeo 100% motion`, true);
   const brief: Brief = { name: p.name, format: p.format, style: p.style, objective: p.objective, instructions: p.instructions, hasMusic: !!p.music_path, hasVideo: false };
   const edl = autoNarration(await director.plan(analysis, brief), p.instructions);

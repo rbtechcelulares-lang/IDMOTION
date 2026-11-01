@@ -80,3 +80,8 @@
 
 ## Narração sincronizada
 - Vídeo motion: a narração fala cena por cena exatamente o texto da tela, começando com a cena; cenas esticam para caber a fala (trilha e motion acompanham). Texto livre editado vira faixa única (custom). Chat: "narração: auto" volta a sincronizar.
+
+## Biblioteca de motion + seletor de cérebro
+- Fundos animados: spotlight (holofotes), aurora, raios, partículas, grade 3D, velocidade (warp), metal com reflexo, bokeh (+ glow, preto, branco, papel, amarelo, gradiente). Texto com posição (centro, topo, base, esquerda, direita) e animação (rise, pop, slide, zoom, type, blur, mask) por cena; iPhones desenhados entrando em 3D com reflexo (visual phones/phone).
+- Diretor por regras e IA escolhem da biblioteca conforme o roteiro (LIBRARY_DOC no prompt) e variam por cena.
+- Cérebro por projeto (Novo Projeto e tela do projeto): Automático, Gemini (grátis), Claude Opus 5.5, Claude Haiku 5.5, só regras. Corrente de reserva Opus → Haiku → Gemini → regras. Migração `projects.ai` (tolerante se não rodada).

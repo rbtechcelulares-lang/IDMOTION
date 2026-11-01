@@ -4,14 +4,15 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { STYLE_LABEL, type Style } from "@/shared/constants";
 import type { Edl } from "@/shared/edl";
 import { upload } from "@/components/upload";
+import { AiSelect } from "@/components/AiSelect";
 import { VIDEO_EXT } from "@/shared/constants";
 
 type Job = { id: string; type: string; status: string; progress: number; stage: string; attempts: number; max_attempts: number; error: string | null; output_path: string | null; edl_version: number | null; created_at: string; cancel_requested: boolean;
   qc: { passed: boolean; checks: { name: string; ok: boolean; value: string; expected: string; severity: string }[]; notes: string[] } | null };
 type State = {
-  project: { id: string; name: string; status: string; format: string; style: Style; objective: string; instructions: string; error: string | null; current_version: number | null; files_deleted_at: string | null;
+  project: { id: string; name: string; status: string; format: string; style: Style; objective: string; instructions: string; error: string | null; current_version: number | null; files_deleted_at: string | null; ai?: string;
     analysis: { duration: number; width: number; height: number; hasAudio: boolean; scenes: number; speech: number; words: number; transcriptProvider: string; frames: number; loudnessLufs: number | null } | null };
-  edl: Edl | null; canUndo: boolean; versions: { version: number; source: string; note: string }[];
+  edl: Edl | null; canUndo: boolean; aiAvailable: { gemini: boolean; claude: boolean }; versions: { version: number; source: string; note: string }[];
   messages: { id: number; role: string; content: string; edl_version: number | null }[]; jobs: Job[];
 };
 
@@ -154,6 +155,12 @@ export function ProjectView({ id }: { id: string }) {
         {edl && !expired && <NarrationPanel id={id} edl={edl} disabled={busy || !!active} onChange={load} />}
 
         <div className="flex h-[520px] flex-col rounded-2xl border border-line bg-panel">
+          <div className="border-b border-line px-4 pt-4">
+            <label className="label">Cérebro criativo</label>
+            <AiSelect ai={s.aiAvailable} value={p.ai ?? "auto"} disabled={busy || !!active}
+              onChange={async (v) => { const r = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ai: v }) }); if (!r.ok) setErr((await r.json().catch(() => ({}))).error || "Erro"); load(); }} />
+            <p className="mt-1 text-[11px] text-smoke">Vale para o chat e para a próxima análise. A produção é sempre do motor.</p>
+          </div>
           <div className="flex items-center justify-between border-b border-line p-4">
             <h2 className="label !mb-0">Director Chat</h2>
             <button className="btn-ghost !py-1" disabled={busy || !s.canUndo || !!active || expired} onClick={() => post(`/api/projects/${id}/undo`)}>↶ Desfazer</button>

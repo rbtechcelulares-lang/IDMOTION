@@ -3,7 +3,7 @@ import { finalizeEdl } from "./finalize";
 import { applyCommands } from "./commands";
 import { pickCta } from "./knowledge";
 import { chooseTrack, trackVolume } from "./music";
-import { BG_WORDS, EMOJI_RE, TEXTURE_WORDS, iconFor, type Background, type Texture } from "../motion";
+import { BG_WORDS, EMOJI_RE, TEXTURE_WORDS, iconFor, type Anim, type Background, type Layout, type Texture } from "../motion";
 import { fixText, newReport, reportLine } from "./textfix";
 import { parseCreativeBrief, type CreativeBrief } from "./brief";
 import type { Analysis, Brief, Director } from "./types";
@@ -113,6 +113,7 @@ export function motionPlan(b: Brief): Edl {
   else if (emojis.length) theme.floaters = { items: emojis.slice(0, 8) };
   else theme.floaters = { items: [...new Set(scenes.map((s) => s.icon).filter((x): x is string => !!x))].slice(0, 6) };
   if (theme.floaters && !theme.floaters.items.length) theme.floaters = null;
+  decorateScenes(scenes, b);
   return EdlSchema.parse({
     mode: "motion", format: b.format, preset: b.style, clips: [], motion: { theme, scenes: scenes.slice(0, 30) },
     captions: { enabled: false, position: "bottom", size: "md", items: [] },
@@ -158,6 +159,7 @@ function briefPlan(b: Brief, br: CreativeBrief): Edl {
     scenes.forEach((x) => (x.duration = Math.max(0.8, Math.min(8, +(x.duration * (br.target! / total)).toFixed(2)))));
   }
   const phones = br.scenes.some((s) => /iphone|aparelho|celular/i.test(s.desc)) || /iphone/i.test(b.instructions);
+  decorateScenes(scenes, b, br.scenes.map((x) => x.desc).join(" "));
   const note = `Briefing: ${scenes.length} cenas com os textos de tela; direção aplicada${br.bg ? `: fundo ${br.bg}` : ""}${br.target ? `, ~${br.target}s` : ""}${br.brand ? `, marca ${br.brand}` : ""}.`;
   return EdlSchema.parse({
     mode: "motion", format: b.format, preset: b.style, clips: [],
@@ -167,6 +169,34 @@ function briefPlan(b: Brief, br: CreativeBrief): Edl {
     audio: { sourceVolume: 1, music: musicFor(b, true), narration: null, normalize: true },
     notes: `${note}${reportLine(rep) ? ` Revisão: ${reportLine(rep)}` : ""}`.slice(0, 500),
   });
+}
+
+const seedOf = (s: string) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
+/** Biblioteca de motion aplicada pelo diretor por regras: fundo, posição, animação e iPhones variando por cena. */
+export function decorateScenes(scenes: { kind: string; text: string; sub?: string; bg?: Background; layout?: Layout; anim?: Anim; visual?: "none" | "phones" | "phone" }[], b: Brief, context = "") {
+  const seed = seedOf(b.name + b.instructions);
+  const anims: Record<string, Anim[]> = { viral: ["pop", "zoom", "slide", "mask"], premium: ["blur", "mask", "rise", "slide"], cinematic: ["rise", "blur", "mask", "type"] };
+  const layouts: Layout[] = ["center", "left", "bottom", "center", "right", "top"];
+  const ctx = `${context} ${b.instructions}`.toLowerCase();
+  let phonesUsed = false;
+  scenes.forEach((s, i) => {
+    const t = `${s.text} ${s.sub ?? ""}`.toLowerCase();
+    if (!s.bg) {
+      s.bg = /brinde|sorteio|presente|ganh|celebr/.test(t) ? "particles"
+        : /corre|hoje|[uú]ltim|urg|agora|dia \d|\d{1,2}\/\d{1,2}/.test(t) ? "speed"
+        : s.kind === "price" || s.kind === "counter" ? (seed % 2 ? "rays" : "spotlight")
+        : /garantia|seguro|confian|premium|met[aá]l/.test(t) ? "metal"
+        : /tecnolog|sistema|online|nuvem|app/.test(t) ? "grid3d"
+        : s.kind === "title" ? (/luz|holofot|suspense|prepar/.test(ctx + t) ? "spotlight" : ["spotlight", "aurora", "bokeh"][seed % 3] as Background)
+        : s.kind === "cta" ? (b.style === "viral" ? "yellow" : "glow")
+        : undefined; // usa o fundo do tema
+    }
+    if (!s.anim) s.anim = anims[b.style][(i + seed) % 4];
+    const iphone = /iphone|aparelho|celular|smartphone|modelos?/.test(t) || (s.kind === "price" && /iphone|aparelho|celular/.test(ctx));
+    if (!s.visual && iphone && !phonesUsed && (s.kind === "price" || s.kind === "feature" || s.kind === "title")) { s.visual = s.kind === "price" || /v[aá]rios|modelos|diversos/.test(ctx) ? "phones" : "phone"; phonesUsed = true; }
+    if (!s.layout && !["compare", "counter", "cta", "check"].includes(s.kind)) s.layout = s.visual && s.visual !== "none" ? "bottom" : layouts[(i + seed) % layouts.length];
+  });
+  return scenes;
 }
 
 /** Destaca (com *…*) números, preços, parcelas e palavras de impacto. Respeita *…* já escrito. */

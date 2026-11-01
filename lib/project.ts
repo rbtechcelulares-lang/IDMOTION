@@ -32,3 +32,6 @@ export async function activeJob(id: string) {
   const { data } = await db().from("jobs").select("id,type").eq("project_id", id).in("status", ["queued", "running"]).limit(1);
   return data?.[0] ?? null;
 }
+
+/** Quais cérebros estão configurados (sem expor chaves). */
+export const aiAvailable = () => ({ gemini: !!(process.env.GEMINI_API_KEY || (process.env.AI_PROVIDER === "gemini" && process.env.AI_API_KEY)), claude: !!process.env.ANTHROPIC_API_KEY });

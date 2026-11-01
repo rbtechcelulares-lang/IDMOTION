@@ -268,3 +268,24 @@ test("narração: texto escrito a partir das cenas", async () => {
   assert.match(t, /Chegou a semana do iPhone\. iPhones a partir de R\$ 599\. Garantia de 1 ano\. Chama no WhatsApp\./);
   assert.ok(!/[*~]/.test(t));
 });
+
+test("cérebro por projeto: corrente Opus → Haiku → Gemini e escolha 'regras'", async () => {
+  const { chainAskers } = await import("../shared/director/llm");
+  const { getDirector } = await import("../shared/director");
+  const calls: string[] = [];
+  const failing = (n: string) => ({ name: n, ask: async () => { calls.push(n); throw Object.assign(new Error(`${n} sem crédito`), { status: 400 }); } });
+  const ok = { name: "gemini", ask: async () => { calls.push("gemini"); return '{"ok":true}'; } };
+  const out = await chainAskers([failing("opus"), failing("haiku"), ok]).ask("s", [{ type: "text", text: "x" }]);
+  assert.match(out, /ok/);
+  assert.deepEqual(calls, ["opus", "haiku", "gemini"]);
+  const saved = { ...process.env };
+  delete process.env.GEMINI_API_KEY; delete process.env.ANTHROPIC_API_KEY;
+  assert.equal(getDirector("rules").name, "heuristic");
+  assert.equal(getDirector("opus").name, "heuristic"); // sem chave nenhuma → regras
+  process.env.ANTHROPIC_API_KEY = "k"; process.env.GEMINI_API_KEY = "g";
+  assert.equal(getDirector("opus").name, "claude:claude-opus-5-5 → claude:claude-haiku-5-5 → gemini:gemini-flash-latest");
+  assert.equal(getDirector("gemini").name, "gemini:gemini-flash-latest → claude:claude-haiku-5-5");
+  Object.assign(process.env, saved);
+  if (!saved.ANTHROPIC_API_KEY) delete process.env.ANTHROPIC_API_KEY;
+  if (!saved.GEMINI_API_KEY) delete process.env.GEMINI_API_KEY;
+});

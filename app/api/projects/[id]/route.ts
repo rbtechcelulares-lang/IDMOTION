@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { isUuid } from "@/lib/files";
-import { activeJob, loadProject, loadVersion } from "@/lib/project";
+import { activeJob, aiAvailable, loadProject, loadVersion } from "@/lib/project";
 import { STORAGE_MODE, removeObject } from "@/lib/storage";
 import fs from "node:fs";
 import { projectDir } from "@/lib/files";
@@ -23,6 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     project: { ...p, analysis: a ? { duration: a.duration, width: a.width, height: a.height, hasAudio: a.hasAudio, scenes: a.scenes?.length ?? 0, speech: a.speech?.length ?? 0, words: a.words?.length ?? 0, transcriptProvider: a.transcriptProvider, frames: a.frames?.length ?? 0, loudnessLufs: a.loudnessLufs } : null },
     edl: current?.edl ?? null,
     canUndo: current?.parent_version != null,
+    aiAvailable: aiAvailable(),
     versions: versions.data ?? [],
     messages: messages.data ?? [],
     jobs: jobs.data ?? [],
@@ -41,5 +42,15 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (STORAGE_MODE === "local") await fs.promises.rm(projectDir(id), { recursive: true, force: true });
   else for (const k of keys) await removeObject(k).catch(() => {});
   await db().from("projects").delete().eq("id", id);
+  return NextResponse.json({ ok: true });
+}
+
+// Troca o cérebro criativo do projeto. Body: { ai: "auto" | "gemini" | "opus" | "haiku" | "rules" }
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { ai } = await req.json().catch(() => ({}));
+  if (!isUuid(id) || !["auto", "gemini", "opus", "haiku", "rules"].includes(ai)) return NextResponse.json({ error: "dados inválidos" }, { status: 400 });
+  const { error } = await db().from("projects").update({ ai }).eq("id", id);
+  if (error) return NextResponse.json({ error: /\bai\b/.test(error.message) ? "Rode o SQL novo (supabase/setup_nuvem.sql) no Supabase para salvar o cérebro por projeto." : error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

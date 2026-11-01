@@ -1,11 +1,42 @@
 /** Vocabulário visual do vídeo 100% motion (fundos, texturas, ícones, emojis). */
-export const BACKGROUNDS = ["glow", "black", "white", "paper", "yellow", "gradient"] as const;
+export const BACKGROUNDS = ["glow", "black", "white", "paper", "yellow", "gradient", "spotlight", "aurora", "rays", "particles", "grid3d", "speed", "metal", "bokeh"] as const;
+/** Fundos animados: o que cada um transmite (usado pelo diretor e pela IA). */
+export const BG_LIBRARY: Record<(typeof BACKGROUNDS)[number], string> = {
+  glow: "preto com brilho dourado pulsando — premium, elegante",
+  black: "preto grafite com vinheta — neutro, foco no texto",
+  white: "branco limpo — clean, institucional, comparação",
+  paper: "papel/creme — 'jeito antigo', caderno, contraste com o novo",
+  yellow: "amarelo da marca, texto preto — oferta, preço, chamada forte",
+  gradient: "gradiente dourado em movimento — energia, transição",
+  spotlight: "holofotes amarelos varrendo o escuro — revelação, suspense, 'luzes percorrem'",
+  aurora: "manchas de luz suaves se movendo — sofisticado, lançamento",
+  rays: "raios de luz girando atrás do centro — impacto, revelação do preço",
+  particles: "faíscas douradas subindo — celebração, brinde, sorteio",
+  grid3d: "piso de grade 3D em perspectiva correndo — tecnologia, futuro",
+  speed: "linhas de velocidade (warp) — urgência, contagem regressiva, 'corre'",
+  metal: "metal escovado com reflexo passando — aparelho premium, acabamento metálico",
+  bokeh: "luzes desfocadas — noite, vitrine, clima de loja",
+};
+export const LAYOUTS = ["center", "top", "bottom", "left", "right"] as const;
+export const ANIMS = ["rise", "pop", "slide", "zoom", "type", "blur", "mask"] as const;
+export const VISUALS = ["none", "phones", "phone"] as const;
+export type Layout = (typeof LAYOUTS)[number];
+export type Anim = (typeof ANIMS)[number];
+export type Visual = (typeof VISUALS)[number];
+export const LIBRARY_DOC = `BIBLIOTECA DE MOTION (escolha o que combina com o roteiro; varie entre cenas — não use o mesmo fundo em tudo):
+Fundos (theme.bg ou scene.bg): ${Object.entries(BG_LIBRARY).map(([k, v]) => `${k} = ${v}`).join("; ")}.
+Layout do texto (scene.layout): center, top, bottom, left, right — varie para dar ritmo (ex.: gancho no centro, benefício à esquerda, preço embaixo do aparelho).
+Animação do texto (scene.anim): rise (sobe), pop (estoura), slide (desliza), zoom (aproxima), type (máquina de escrever), blur (desfoque→nítido), mask (revela por máscara).
+Visual (scene.visual): phones = vários iPhones desenhados entrando em 3D com reflexo; phone = um iPhone girando; none.`;
 export const TEXTURES = ["none", "grain", "dots", "grid", "lines", "stripes"] as const;
 export type Background = (typeof BACKGROUNDS)[number];
 export type Texture = (typeof TEXTURES)[number];
 
 export const BG_WORDS: [RegExp, Background][] = [
   [/branc/, "white"], [/creme|papel|bege|claro/, "paper"], [/amarel/, "yellow"], [/pret|escur/, "black"],
+  [/holofot|spotlight|luzes (amarelas )?percorr/, "spotlight"], [/aurora|manchas de luz/, "aurora"], [/raios|explos/, "rays"],
+  [/part[ií]cula|fa[ií]sca|confete|celebra/, "particles"], [/grade 3d|piso|futur|tecnol[oó]g/, "grid3d"], [/velocidade|warp|corre|urg[eê]n/, "speed"],
+  [/met[aá]lic|reflexo|cromad|a[çc]o/, "metal"], [/bokeh|desfocad|vitrine/, "bokeh"],
   [/brilh|glow|dourad|luz|neon/, "glow"], [/gradiente|degrad/, "gradient"],
 ];
 export const TEXTURE_WORDS: [RegExp, Texture][] = [

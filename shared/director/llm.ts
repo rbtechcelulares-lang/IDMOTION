@@ -5,6 +5,7 @@ import { finalizeEdl } from "./finalize";
 import { HeuristicDirector, musicFor } from "./heuristic";
 import type { Analysis, Brief, Director } from "./types";
 import { RBTECH_GUIDE } from "./knowledge";
+import { LIBRARY_DOC } from "../motion";
 
 const SCHEMA_DOC = `EDL JSON (tempos em segundos; clips usam o tempo do vídeo-fonte; overlays usam o tempo da timeline final):
 {
@@ -27,14 +28,17 @@ pop = animado/lançamento/leve (98-114), light = premium/calmo/clean (80-92); vo
 
 const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
 {"mode":"motion","format":...,"preset":...,"clips":[],"motion":{
-  "theme":{"bg":"glow"|"black"|"white"|"paper"|"yellow"|"gradient","texture":"none"|"grain"|"dots"|"grid"|"lines"|"stripes","floaters":{"items":[ícones Lucide ou emojis]}|null},
+  "theme":{"bg": um fundo da biblioteca,"texture":"none"|"grain"|"dots"|"grid"|"lines"|"stripes","floaters":{"items":[ícones Lucide ou emojis]}|null},
   "scenes":[{"kind":"title"|"feature"|"price"|"cta"|"compare"|"counter"|"check","text":string<=90,"sub"?:string<=120,"duration":0.8-8,
     "icon"?: nome de ícone Lucide (Phone, MessageSquareText, NotebookText, Sheet, Cloud, ShieldCheck, Gift, Truck, CreditCard, Wrench, Tag, Zap, Smartphone, Users, MapPin, Sparkles, BadgeCheck, Clock, ShoppingCart) ou um emoji,
-    "bg"?: fundo só desta cena, "compare"?: {"left":{"label","value","sub"?},"right":{"label","value","sub"?}} }]},
+    "bg"?: fundo só desta cena, "layout"?: "center"|"top"|"bottom"|"left"|"right", "anim"?: "rise"|"pop"|"slide"|"zoom"|"type"|"blur"|"mask", "visual"?: "none"|"phones"|"phone",
+    "compare"?: {"left":{"label","value","sub"?},"right":{"label","value","sub"?}} }]},
+${LIBRARY_DOC}
  "captions":{"enabled":false,"position":"bottom","size":"md","items":[]},"overlays":{"intro":null,"texts":[],"price":null,"cta":null},
  "audio":{"sourceVolume":1,"music":{"volume":0.9,"track":{"genre":"trap"|"pop"|"light","bpm":number,"shift":number,"seed":number}|null},"narration":{"text":string,"volume":1}|null,"normalize":true},"notes":string}
 Texto: use *palavra* para destacar (cor de acento) e ~palavra~ para riscar. compare = dois cards "A vs B" (right é o vencedor); counter = número que conta (text "R$ 1,26", sub "Menos de"); check = ✓ + texto.
-Visual: premium → bg glow + grain + ícones em tile; viral → black + stripes + emojis; cinematic → black + grain. Use bg "paper" para o "jeito antigo/papel". Obedeça pedidos de fundo/textura/emoji do usuário.
+Visual: escolha da BIBLIOTECA o que o roteiro pede (ex.: "luzes percorrem" → spotlight; preço/revelação → rays ou spotlight + visual phones; brinde/sorteio → particles; urgência/data → speed; garantia/premium → metal).
+Varie fundo, layout e animação entre as cenas (nunca o mesmo fundo em tudo). iPhones aparecendo → visual "phones" (ou "phone") e texto com layout "bottom". Use bg "paper" para o "jeito antigo/papel". Obedeça pedidos de fundo/textura/emoji do usuário.
 BRIEFING: as instruções podem ser um prompt completo de campanha. Use SOMENTE os textos que devem aparecer na tela (entre aspas, depois de "Texto:"/"Surge a frase", e a HEADLINE),
 respeitando a ordem das cenas do roteiro. Descrições ("Tela escura", "Direção criativa", "Estilo", "iPhones aparecem…") NÃO são cenas: viram decisões visuais (fundo, ícones, ritmo, duração).
 Se o briefing já tem encerramento, não invente CTA nem textos extras.
@@ -84,13 +88,31 @@ export function anthropicAsker(apiKey: string, model = process.env.AI_MODEL || "
     async ask(system, parts) {
       const content: Anthropic.Beta.BetaContentBlockParam[] = parts.map((p) =>
         p.type === "text" ? { type: "text", text: p.text } : { type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.jpegBase64 } });
+      const serverFallback = /opus|sonnet|fable/.test(model); // Haiku não tem fallback no servidor
       const res = await client.beta.messages.create({
-        model, max_tokens: 16000, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default",
+        model, max_tokens: 16000,
+        ...(serverFallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
         output_config: { effort: (process.env.AI_EFFORT as "low" | "medium" | "high") || "medium" },
         system, messages: [{ role: "user", content }],
-      });
+      }, { timeout: Number(process.env.AI_TIMEOUT_MS || 45000), maxRetries: 1 });
       if (res.stop_reason === "refusal") throw new Error("IA recusou o pedido");
       return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+    },
+  };
+}
+
+/** Corrente de cérebros: tenta o próximo se um falhar (sem crédito, limite, fora do ar, lento). */
+export function chainAskers(list: Asker[]): Asker {
+  if (list.length === 1) return list[0];
+  return {
+    name: list.map((x) => x.name).join(" → "),
+    async ask(system, parts) {
+      let last: unknown;
+      for (const a of list) {
+        try { return await a.ask(system, parts); }
+        catch (e) { last = e; console.warn(`[ia] ${a.name} falhou: ${(e as Error).message.slice(0, 160)} — tentando o próximo cérebro`); }
+      }
+      throw last;
     },
   };
 }

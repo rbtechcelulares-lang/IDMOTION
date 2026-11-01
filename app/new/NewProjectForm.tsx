@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
 import { upload, videoDuration } from "@/components/upload";
+import { AiSelect } from "@/components/AiSelect";
 import { AUDIO_EXT, FORMATS, OBJECTIVES, STYLES, STYLE_LABEL, VIDEO_EXT } from "@/shared/constants";
 
 const STYLE_HINT = { cinematic: "Ritmo calmo, letterbox, tipografia elegante", viral: "Cortes rápidos, legenda grande palavra a palavra", premium: "Limpo, destaque de produto e preço" };
 
-export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: number; maxDurationS: number }) {
+export function NewProjectForm({ maxUploadMb, maxDurationS, ai }: { maxUploadMb: number; maxDurationS: number; ai: { gemini: boolean; claude: boolean } }) {
   const [format, setFormat] = useState<string>("9:16");
   const [style, setStyle] = useState<string>("viral");
   const [err, setErr] = useState("");
@@ -47,7 +48,7 @@ export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: num
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: fd.get("name"), format, style, objective: fd.get("objective"), instructions: `${fd.get("instructions") || ""}${fd.get("narration") ? "\nnarração: auto" : ""}`.trim() }),
+        body: JSON.stringify({ name: fd.get("name"), format, style, ai: fd.get("ai") || "auto", objective: fd.get("objective"), instructions: `${fd.get("instructions") || ""}${fd.get("narration") ? "\nnarração: auto" : ""}`.trim() }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
@@ -98,11 +99,15 @@ export function NewProjectForm({ maxUploadMb, maxDurationS }: { maxUploadMb: num
       </div>
       <div>
         <label className="label">Instruções para o diretor</label>
-        <textarea name="instructions" rows={4} maxLength={2000} className="input" placeholder={'Ex.: Preço R$ 4.299. CTA: "Chama no direct". Duração 30s. Abertura: iPhone 15 Pro com garantia.'} />
+        <textarea name="instructions" rows={4} maxLength={6000} className="input" placeholder={'Ex.: Preço R$ 4.299. CTA: "Chama no direct". Duração 30s. Abertura: iPhone 15 Pro com garantia.'} />
       </div>
       <div>
         <label className="label">Trilha (opcional)</label>
         <input name="music" type="file" accept={AUDIO_EXT.join(",") + ",audio/*"} className="input file:mr-4 file:rounded-md file:border-0 file:bg-paper file:px-3 file:py-1.5 file:text-ink" />
+      </div>
+      <div>
+        <label className="label">Cérebro criativo</label>
+        <AiSelect name="ai" ai={ai} />
       </div>
       <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-line p-3">
         <input type="checkbox" name="narration" className="h-5 w-5 accent-[#FFE600]" />

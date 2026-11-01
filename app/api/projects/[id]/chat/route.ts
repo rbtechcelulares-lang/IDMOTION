@@ -28,7 +28,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ ok: true, version: cur.parent_version });
   }
   try {
-    const r = await getDirector().edit(cur.edl, message.trim(), analysisOf(p), briefOf(p));
+    const r = await getDirector(p.ai).edit(cur.edl, message.trim(), analysisOf(p), briefOf(p));
     if (!r) {
       await say(id, "assistant", `Não entendi. Exemplos:\n• ${COMMAND_HELP.join("\n• ")}${process.env.ANTHROPIC_API_KEY ? "" : "\n(Configure ANTHROPIC_API_KEY para pedidos livres.)"}`);
       return NextResponse.json({ ok: true });
