@@ -1,7 +1,7 @@
 # TASKS
 
 - [x] M1 — Next.js + TS + Tailwind + PWA, tema, Supabase, lobby/login (testado)
-- [ ] M2 — Home + Novo Projeto (upload, validação)
+- [x] M2 — Home + Novo Projeto (upload, validação) (testado)
 - [ ] M3 — AI Director (análise + EDL zod)
 - [ ] M4 — Motor FFmpeg (worker Docker)
 - [ ] M5 — Remotion (legendas, textos, preço, abertura, CTA; 3 presets)

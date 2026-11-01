@@ -15,6 +15,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // tudo, exceto assets estáticos do Next e ícones
-  matcher: ["/((?!_next/static|_next/image|icons/|favicon.ico).*)"],
+  // Tudo, exceto assets estáticos e o upload (o middleware trunca corpos > 10 MB;
+  // a rota de upload valida a sessão por conta própria).
+  matcher: ["/((?!_next/static|_next/image|icons/|favicon.ico|api/projects/[^/]+/upload).*)"],
 };
