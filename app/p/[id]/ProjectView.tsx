@@ -34,7 +34,7 @@ export function ProjectView({ id }: { id: string }) {
     load();
     const t = setInterval(load, active ? 1200 : 5000);
     return () => clearInterval(t);
-  }, [load, active?.id]);
+  }, [load, active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { chatRef.current?.scrollTo(0, chatRef.current.scrollHeight); }, [s?.messages.length]);
 
   async function post(url: string, body?: unknown) {
@@ -59,7 +59,7 @@ export function ProjectView({ id }: { id: string }) {
         <div className="idm-rise">
           <div className="mb-2 flex flex-wrap items-center gap-2"><StatusBadge status={p.status} /><span className="text-xs text-smoke">{p.format} · {STYLE_LABEL[p.style]} · {p.objective}</span></div>
           <h1 className="text-3xl font-bold">{p.name}</h1>
-          {p.error && <p className="mt-2 text-sm text-red-400">{p.error}</p>}
+          {p.error && <p className="mt-2 text-sm text-red-400" title={p.error}>{p.error.slice(0, 160)}{p.error.length > 160 ? "…" : ""}</p>}
           {p.status === "error" && !active && <button className="btn-ghost mt-3" disabled={busy} onClick={() => post(`/api/projects/${id}/analyze`)}>Analisar de novo</button>}
         </div>
 
@@ -68,6 +68,7 @@ export function ProjectView({ id }: { id: string }) {
             <video key={lastDone.id} controls playsInline className="max-h-[70vh] rounded-lg bg-black" style={{ aspectRatio: ASPECT[p.format] }} src={`/api/jobs/${lastDone.id}/download?inline`} />
           ) : p.analysis?.frames ? (
             <div className="grid w-full grid-cols-3 gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               {Array.from({ length: p.analysis.frames }).map((_, i) => <img key={i} alt={`frame ${i}`} src={`/api/projects/${id}/frame/${i}`} className="w-full rounded-md" />)}
             </div>
           ) : (
@@ -116,7 +117,7 @@ export function ProjectView({ id }: { id: string }) {
             </button>
           )}
           {lastRender && lastRender.status === "error" && !active && (
-            <div className="mt-3 text-sm text-red-400">Falhou após {lastRender.attempts} tentativa(s): {lastRender.error} <button className="btn-ghost mt-2" onClick={() => post(`/api/projects/${id}/render`)}>Tentar de novo</button></div>
+            <div className="mt-3 text-sm text-red-400">Falhou após {lastRender.attempts} tentativa(s): <span title={lastRender.error ?? ""}>{lastRender.error?.slice(0, 160)}</span> <button className="btn-ghost mt-2" onClick={() => post(`/api/projects/${id}/render`)}>Tentar de novo</button></div>
           )}
           {lastRender?.status === "cancelled" && !active && <p className="mt-3 text-sm text-smoke">Última exportação cancelada.</p>}
           {lastDone && (

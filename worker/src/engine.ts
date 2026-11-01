@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { FORMAT_SIZE } from "../../shared/constants";
 import { type Edl, clipDuration, edlDuration } from "../../shared/edl";
 import { FFMPEG } from "./env";
@@ -77,5 +78,16 @@ export const parseTime = (line: string) => {
 export async function buildBase(edl: Edl, inp: BaseInputs, out: string, onProgress: (p: number) => void) {
   const { args, duration } = buildBaseArgs(edl, inp, out);
   await run(FFMPEG, args, { onLine: (l) => { const t = parseTime(l); if (t !== null) onProgress(Math.min(1, t / duration)); } });
+  if (edl.audio.normalize) await fixLoudness(out);
   return duration;
+}
+
+/** 2ª passada só de áudio: o loudnorm de passada única erra em material com muito silêncio. */
+async function fixLoudness(file: string, target = -14) {
+  const { stderr } = await run(FFMPEG, ["-hide_banner", "-i", file, "-vn", "-af", "ebur128=framelog=quiet", "-f", "null", "-"]);
+  const lufs = Number([...stderr.matchAll(/I:\s+(-?[\d.]+) LUFS/g)].pop()?.[1] ?? NaN);
+  if (!Number.isFinite(lufs) || lufs < -50 || Math.abs(lufs - target) <= 1) return;
+  const tmp = file.replace(/\.mp4$/, ".gain.mp4");
+  await run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-i", file, "-c:v", "copy", "-af", `volume=${(target - lufs).toFixed(2)}dB,alimiter=limit=0.89:level=false`, "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", tmp]);
+  await fs.promises.rename(tmp, file);
 }

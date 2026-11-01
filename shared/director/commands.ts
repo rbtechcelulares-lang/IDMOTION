@@ -71,7 +71,7 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
   if (/sem abertura|remov\w* (a )?abertura/.test(low)) { edl.overlays.intro = null; done.push("abertura removida"); }
   else if ((m = text.match(/(?:abertura|t[ií]tulo)\s*[:=]\s*["“]?([^"”\n]+)/i))) { edl.overlays.intro = { duration: edl.overlays.intro?.duration ?? 2.2, sub: edl.overlays.intro?.sub, text: m[1].trim().slice(0, 60) }; done.push(`abertura "${m[1].trim()}"`); }
 
-  if ((m = text.match(/^texto\s*[:=]\s*["“]?([^"”\n]+)/im))) {
+  if ((m = text.match(/\btexto\s*[:=]\s*["“]?([^"”\n]+)/i))) {
     const d = edlDuration(edl);
     const start = Math.min(d - 1, (edl.overlays.intro?.duration ?? 0) + 0.3);
     edl.overlays.texts.push({ start, end: Math.min(d, start + 3), text: m[1].trim().slice(0, 80), position: "top" });

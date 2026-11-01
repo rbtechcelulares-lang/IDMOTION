@@ -1,5 +1,7 @@
+import fs from "node:fs";
 import os from "node:os";
-import { Cancelled, db } from "./env";
+import path from "node:path";
+import { Cancelled, db, projectDir } from "./env";
 import { killAll } from "./proc";
 import { jobCtx, type Job } from "./jobs";
 import { runAnalyze } from "./analyze";
@@ -14,6 +16,9 @@ async function finish(job: Job, patch: Record<string, unknown>, projectPatch?: R
   if (projectPatch) await db.from("projects").update({ ...projectPatch, updated_at: new Date().toISOString() }).eq("id", job.project_id);
 }
 
+const cleanup = (job: Job) =>
+  job.type === "render" ? fs.promises.rm(path.join(projectDir(job.project_id), "renders", job.id), { recursive: true, force: true }) : Promise.resolve();
+
 async function handle(job: Job) {
   const ctx = jobCtx(job);
   console.log(`[worker] ${job.type} ${job.id} (tentativa ${job.attempts}/${job.max_attempts})`);
@@ -24,6 +29,7 @@ async function handle(job: Job) {
   } catch (e) {
     killAll();
     if (e instanceof Cancelled) {
+      await cleanup(job);
       await finish(job, { status: "cancelled", stage: "Cancelado" }, { status: job.type === "analyze" ? "error" : "ready", error: job.type === "analyze" ? "Análise cancelada" : null });
       console.log(`[worker] ${job.id} cancelado`);
       return;
@@ -35,6 +41,7 @@ async function handle(job: Job) {
       // retry automático (máx. 2 = max_attempts 3)
       await db.from("jobs").update({ status: "queued", stage: `Nova tentativa (${job.attempts}/${job.max_attempts - 1})`, error: msg, progress: 0 }).eq("id", job.id);
     } else {
+      await cleanup(job);
       await finish(job, { status: "error", error: msg }, { status: job.type === "analyze" ? "error" : "ready", error: msg });
     }
   }

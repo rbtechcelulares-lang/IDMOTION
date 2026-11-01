@@ -31,7 +31,8 @@ test("heurístico: remove trecho só de muleta, aplica preço/CTA/duração e le
 
 test("comandos do chat", async () => {
   const edl = await new HeuristicDirector().plan(a, b);
-  const r = applyCommands(edl, "estilo premium, preço 3.999, sem CTA, legenda menor, remover corte 1", a)!;
+  const r = applyCommands(edl, "estilo premium, preço 3.999, sem CTA, legenda menor, remover corte 1, texto: Garantia de 1 ano", a)!;
+  assert.equal(r.edl.overlays.texts[0]?.text, "Garantia de 1 ano");
   assert.equal(r.edl.preset, "premium");
   assert.equal(r.edl.overlays.price?.value, "R$ 3.999");
   assert.equal(r.edl.overlays.cta, null);

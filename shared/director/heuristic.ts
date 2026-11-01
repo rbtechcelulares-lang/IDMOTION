@@ -19,7 +19,7 @@ export function parseBrief(instructions: string) {
 
 /** Segmentos-base: fala (sem pausas e sem trechos só de muleta) ou cenas. */
 function baseSegments(a: Analysis, style: keyof typeof MAX_CLIP) {
-  let segs: { in: number; out: number }[] = [];
+  const segs: { in: number; out: number }[] = [];
   if (a.hasAudio && a.speech.length) {
     for (const s of a.speech) {
       const seg = { in: Math.max(0, s.start - 0.12), out: Math.min(a.duration, s.end + 0.15) };

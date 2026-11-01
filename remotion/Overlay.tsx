@@ -5,6 +5,7 @@ import { LOOK, YELLOW } from "./presets";
 
 type P = { edl: Edl };
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+const longestWord = (t: string) => Math.max(...t.split(/\s+/).map((w) => w.length));
 
 /** Camada transparente com legendas, textos, preço, abertura e CTA. Renderizada sobre o vídeo-base. */
 export const Overlay: React.FC<P> = ({ edl }) => {
@@ -107,7 +108,7 @@ function Intro({ edl, t, u }: { edl: Edl; t: number; u: number }) {
   if (edl.preset === "viral") {
     return (
       <AbsoluteFill style={{ background: `rgba(0,0,0,${0.55 * outO})`, justifyContent: "center", alignItems: "center", opacity: outO, padding: 60 * u }}>
-        <div style={{ fontSize: 120 * u, fontWeight: 900, textTransform: "uppercase", textAlign: "center", lineHeight: 0.95, transform: `scale(${1.6 - 0.6 * s}) rotate(${(1 - s) * -4}deg)`, letterSpacing: -2 * u }}>{intro.text}</div>
+        <div style={{ fontSize: Math.min(120, 1500 / Math.max(8, longestWord(intro.text) * 1.6)) * u, fontWeight: 900, textTransform: "uppercase", textAlign: "center", lineHeight: 0.95, opacity: Math.min(1, s * 3), transform: `scale(${1.25 - 0.25 * s}) rotate(${(1 - s) * -4}deg)`, letterSpacing: -2 * u, maxWidth: "100%" }}>{intro.text}</div>
         {intro.sub && <div style={{ marginTop: 30 * u, background: YELLOW, color: "black", fontWeight: 900, fontSize: 46 * u, padding: `${8 * u}px ${22 * u}px`, textTransform: "uppercase", transform: `translateY(${(1 - s) * 60 * u}px)` }}>{intro.sub}</div>}
       </AbsoluteFill>
     );

@@ -1,0 +1,17 @@
+# Sobe o worker de render: docker compose up -d --build
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      # Dentro do container, o Supabase local do host fica em host.docker.internal
+      SUPABASE_URL: ${WORKER_SUPABASE_URL:-http://host.docker.internal:54321}
+    volumes:
+      - ./data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    shm_size: 1gb
+    restart: unless-stopped

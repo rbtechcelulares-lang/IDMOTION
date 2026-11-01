@@ -1,10 +1,11 @@
 # PROJECT_STATE
 
-- Marco atual: M4. M1–M3 prontos e testados.
-- Auth: usuário fixo IDMOTION, hash bcrypt em `app_auth` (linha única id=1), cookie HMAC httpOnly 7 dias, `middleware.ts`.
-- Rate limit: 5 erros → 15 min (`login_attempts`; por IP só com TRUST_PROXY=1).
-- Banco: `supabase/migrations/`. Local: `npx supabase start`.
-- Arquivos: disco local em DATA_DIR (`data/projects/<id>/`), caminhos relativos no banco; app e worker montam o mesmo diretório.
-- Upload: PUT streaming `/api/projects/:id/upload` (fora do middleware; checa sessão), valida tipo/tamanho/duração (ffprobe).
-- Worker (`worker/src`): fila em `jobs` via RPC `claim_job`; análise = ffprobe, cenas, silêncios, frames, loudness, transcrição (ElevenLabs opcional).
-- Director (`shared/director`): interface `Director`; Claude (SDK, `AI_MODEL`, default claude-opus-5-5) ou heurístico sem chave. EDL em `shared/edl.ts` (zod).
+- Status: MVP M1–M8 completo e testado ponta a ponta (navegador → worker → MP4 aprovado no QC).
+- Auth: usuário fixo IDMOTION, bcrypt em `app_auth` (linha única), cookie HMAC httpOnly 7 dias, `middleware.ts`, rate limit 5/15 min.
+- Dados: Supabase (`supabase/migrations`); arquivos em DATA_DIR (`data/projects/<id>/`), caminhos relativos no banco.
+- Fila: tabela `jobs` + RPC `claim_job`; worker em `worker/src` (Docker: `docker compose up`), retry automático 2x, cancelamento.
+- Análise: ffprobe, cenas, fala/pausas, frames, loudness, transcrição ElevenLabs opcional.
+- Director: `shared/director` (Claude via SDK ou heurístico); EDL zod em `shared/edl.ts`; chat cria versões com pai → desfazer.
+- Render: FFmpeg monta base (cortes/formato/mix/loudnorm + correção de ganho) → Remotion (ProRes 4444 alpha) → composição → QC.
+- Presets em `remotion/` (Overlay.tsx, presets.ts).
+- Pendências: imagem Docker não construída aqui (rede); chaves reais de IA/ElevenLabs não testadas.

@@ -2,6 +2,8 @@ import { Header } from "@/components/Header";
 import { limits } from "@/shared/constants";
 import { NewProjectForm } from "./NewProjectForm";
 
+export const dynamic = "force-dynamic";
+
 export default function NewProject() {
   const { maxUploadMb, maxDurationS } = limits();
   return (
