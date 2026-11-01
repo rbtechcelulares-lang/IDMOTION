@@ -235,9 +235,9 @@ function NarrationPanel({ id, edl, disabled, onChange }: { id: string; edl: Edl;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   useEffect(() => { setText(edl.audio.narration?.text ?? ""); }, [edl.audio.narration?.text]);
-  async function send(enabled: boolean, t?: string, tone?: string) {
+  async function send(enabled: boolean, t?: string, tone?: string, voiceId?: string) {
     setSaving(true); setErr("");
-    const r = await fetch(`/api/projects/${id}/narration`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled, text: t, tone }) });
+    const r = await fetch(`/api/projects/${id}/narration`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled, text: t, tone, voiceId }) });
     setSaving(false);
     if (!r.ok) setErr((await r.json().catch(() => ({}))).error || `Erro ${r.status}`);
     onChange();
@@ -262,6 +262,10 @@ function NarrationPanel({ id, edl, disabled, onChange }: { id: string; edl: Edl;
                 className={`rounded-lg border py-2 text-sm capitalize transition ${ (edl.audio.narration?.tone ?? "animado") === tn ? "border-volt bg-volt text-ink font-semibold" : "border-line hover:border-volt"}`}>{tn}</button>
             ))}
           </div>
+          <select className="input !py-2 text-sm" value={edl.audio.narration?.voiceId ?? ""} disabled={disabled || saving}
+            onChange={(e) => send(true, edl.audio.narration?.custom ? text : undefined, undefined, e.target.value || "padrao")}>
+            {VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+          </select>
           <textarea className="input !py-2 text-sm" rows={4} maxLength={2500} value={text} onChange={(e) => setText(e.target.value)} />
           <button className="btn-ghost w-full" disabled={disabled || saving || text.trim() === edl.audio.narration?.text} onClick={() => send(true, text)}>Salvar texto da narração</button>
           <p className="text-[11px] text-smoke">Precisa de ELEVENLABS_API_KEY e ELEVENLABS_VOICE_ID nos Secrets do GitHub. Áudio gerado é guardado em cache (mesmo texto não é cobrado de novo).</p>
@@ -271,3 +275,13 @@ function NarrationPanel({ id, edl, disabled, onChange }: { id: string; edl: Edl;
     </div>
   );
 }
+
+// Vozes PT-BR animadas da Voice Library da ElevenLabs (se a API recusar, adicione a voz em "My Voices" no site)
+const VOICES = [
+  { id: "", label: "Voz padrão (ELEVENLABS_VOICE_ID)" },
+  { id: "zhza6dIY7yb1xz5MKTvQ", label: "Nassif — vendedor persuasivo, ofertas (masc.)" },
+  { id: "plASsyS7JE6GCAvx9uIc", label: "Marcio — gancho viral, rápido (masc.)" },
+  { id: "NQmLEqxcRTkWYIYZSYod", label: "Matheus — energético (masc.)" },
+  { id: "Yu6uoFniEUcJhbrF7K1D", label: "Lari Diniz — anúncios animados (fem.)" },
+  { id: "zxk5LWW71eFBR9Cep81P", label: "André — review de tecnologia (masc.)" },
+];

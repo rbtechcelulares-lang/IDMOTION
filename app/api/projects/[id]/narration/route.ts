@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const custom = typeof text === "string" && !!text.trim() && text.trim() !== buildNarration(edl);
   const t = custom ? text.trim().slice(0, 2500) : buildNarration(edl);
   const tn = ["animado", "neutro", "calmo"].includes(tone) ? tone : edl.audio.narration?.tone ?? "animado";
-  edl.audio.narration = enabled ? { text: t, custom, tone: tn, volume: edl.audio.narration?.volume ?? 1, voiceId: typeof voiceId === "string" && voiceId.trim() ? voiceId.trim().slice(0, 64) : edl.audio.narration?.voiceId } : null;
+  edl.audio.narration = enabled ? { text: t, custom, tone: tn, volume: edl.audio.narration?.volume ?? 1, voiceId: voiceId === "padrao" ? undefined : typeof voiceId === "string" && voiceId.trim() ? voiceId.trim().slice(0, 64) : edl.audio.narration?.voiceId } : null;
   const version = await saveVersion(id, edl, p.current_version, "manual", enabled ? "narração ligada" : "narração desligada");
   await db().from("chat_messages").insert({ project_id: id, role: "assistant", content: enabled ? `Narração ElevenLabs ligada (versão ${version}) — ${custom ? `texto livre: "${t.slice(0, 300)}${t.length > 300 ? "…" : ""}"` : "fala o texto de cada cena, sincronizada com a tela."}` : `Narração desligada (versão ${version}).`, edl_version: version });
   return NextResponse.json({ ok: true, version, text: t });
