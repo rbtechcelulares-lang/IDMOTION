@@ -96,3 +96,6 @@
 ## Narração com contexto e skill RBTech completa
 - Cada fala vai para a ElevenLabs com a frase anterior e a próxima (previous_text/next_text) — entonação contínua; silêncio das pontas cortado; cena dura a fala + respiro curto (sem silêncio morto).
 - Skill RBTech completa (princípio, assinatura, matriz de variação, zoom, oratória, anti-cópia) no cérebro criativo (Opus, Haiku e Gemini).
+
+## Correção: linha vertical no fundo listrado
+- Textura de listras agora desliza como camada inteira (sem emenda do padrão), eliminando a linha vertical que aparecia no fundo.

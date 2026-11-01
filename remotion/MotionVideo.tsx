@@ -229,8 +229,18 @@ function TextureLayer({ texture, light, u, frame }: { texture: Texture; light: b
     dots: { backgroundImage: `radial-gradient(${ink}.16) ${2.2 * u}px, transparent ${2.6 * u}px)`, backgroundSize: `${s}px ${s}px` },
     grid: { backgroundImage: `linear-gradient(${ink}.07) 1px, transparent 1px), linear-gradient(90deg, ${ink}.07) 1px, transparent 1px)`, backgroundSize: `${s * 1.4}px ${s * 1.4}px` },
     lines: { backgroundImage: `repeating-linear-gradient(0deg, ${ink}.06) 0 1px, transparent 1px ${s}px)` },
-    stripes: { backgroundImage: `repeating-linear-gradient(-45deg, ${light ? "rgba(0,0,0,.06)" : "rgba(255,214,10,.08)"} 0 ${40 * u}px, transparent ${40 * u}px ${160 * u}px)`, backgroundPosition: `${(frame * 6) % (160 * u)}px 0` },
+    stripes: {},
   };
+  if (texture === "stripes") {
+    // camada maior que a tela deslizando inteira (sem emenda de padrão): período horizontal = 160u·√2
+    const period = 160 * u * Math.SQRT2;
+    return (
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: -period, right: -period, transform: `translateX(${(frame * 6 * u) % period}px)`,
+          backgroundImage: `repeating-linear-gradient(-45deg, ${light ? "rgba(0,0,0,.06)" : "rgba(255,214,10,.08)"} 0 ${40 * u}px, transparent ${40 * u}px ${160 * u}px)` }} />
+      </AbsoluteFill>
+    );
+  }
   return <AbsoluteFill style={css[texture]} />;
 }
 
