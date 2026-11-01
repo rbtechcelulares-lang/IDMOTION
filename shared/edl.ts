@@ -65,7 +65,7 @@ export const EdlSchema = z.object({
       track: z.object({ genre: z.enum(["trap", "pop", "light"]), bpm: z.number().min(60).max(180).default(110), shift: z.number().int().min(-6).max(6).default(0), seed: z.number().int().min(1).max(9999).default(1) }).nullable().default(null),
     }).nullable().default(null),
     // custom=false (padrão): no motion, fala cena por cena o texto da tela, sincronizado; custom=true: texto livre em faixa única
-    narration: z.object({ text: z.string().min(1).max(2500), voiceId: z.string().max(64).optional(), volume: z.number().min(0).max(2).default(1), custom: z.boolean().default(false) }).nullable().default(null),
+    narration: z.object({ text: z.string().min(1).max(2500), voiceId: z.string().max(64).optional(), volume: z.number().min(0).max(2).default(1), custom: z.boolean().default(false), tone: z.enum(["animado", "neutro", "calmo"]).default("animado") }).nullable().default(null),
     normalize: z.boolean().default(true),
   }),
   notes: z.string().max(500).default(""),

@@ -85,3 +85,6 @@
 - Fundos animados: spotlight (holofotes), aurora, raios, partículas, grade 3D, velocidade (warp), metal com reflexo, bokeh (+ glow, preto, branco, papel, amarelo, gradiente). Texto com posição (centro, topo, base, esquerda, direita) e animação (rise, pop, slide, zoom, type, blur, mask) por cena; iPhones desenhados entrando em 3D com reflexo (visual phones/phone).
 - Diretor por regras e IA escolhem da biblioteca conforme o roteiro (LIBRARY_DOC no prompt) e variam por cena.
 - Cérebro por projeto (Novo Projeto e tela do projeto): Automático, Gemini (grátis), Claude Opus 5.5, Claude Haiku 5.5, só regras. Corrente de reserva Opus → Haiku → Gemini → regras. Migração `projects.ai` (tolerante se não rodada).
+
+## Narração animada
+- Tom da narração (Animado padrão, Neutro, Calmo) com voice_settings expressivos; texto falável para a voz (sem caixa alta, "599 reais", "12 vezes", "3 de novembro", exclamação no gancho/preço/CTA). Seletor de tom no quadro de narração e chat ("narração animada|neutra|calma").

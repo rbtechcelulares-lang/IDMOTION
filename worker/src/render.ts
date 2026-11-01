@@ -9,7 +9,7 @@ import { composite, hasOverlay, renderOverlay } from "./overlay";
 import { killAll } from "./proc";
 import { runQc } from "./qc";
 import { audioDuration, narrationFile } from "./tts";
-import { sceneLine } from "../../shared/director/narration";
+import { sceneLine, speakable } from "../../shared/director/narration";
 import { FFMPEG } from "./env";
 import { run } from "./proc";
 import { STORAGE_MODE, ensureLocal, store } from "./storage";
@@ -42,7 +42,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
     await prog(0.02, "Narração cena por cena (ElevenLabs)", true);
     const clips: { file: string; dur: number }[] = [];
     for (const s of edl.motion.scenes) {
-      const r = await guard(() => narrationFile(sceneLine(s), edl.audio.narration!.voiceId));
+      const r = await guard(() => narrationFile(speakable(sceneLine(s), edl.audio.narration!.tone, s.kind), edl.audio.narration!.voiceId, edl.audio.narration!.tone));
       if (!r.file) { notes.push(r.note ?? "Narração ignorada."); clips.length = 0; break; }
       clips.push({ file: r.file, dur: await audioDuration(r.file) });
     }
@@ -61,7 +61,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
     }
   } else if (edl.audio.narration) {
     await prog(0.02, "Narração", true);
-    const r = await guard(() => narrationFile(edl.audio.narration!.text, edl.audio.narration!.voiceId));
+    const r = await guard(() => narrationFile(speakable(edl.audio.narration!.text, edl.audio.narration!.tone), edl.audio.narration!.voiceId, edl.audio.narration!.tone));
     narration = r.file;
     if (r.note) notes.push(r.note);
   }

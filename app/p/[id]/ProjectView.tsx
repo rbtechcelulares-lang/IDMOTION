@@ -235,9 +235,9 @@ function NarrationPanel({ id, edl, disabled, onChange }: { id: string; edl: Edl;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   useEffect(() => { setText(edl.audio.narration?.text ?? ""); }, [edl.audio.narration?.text]);
-  async function send(enabled: boolean, t?: string) {
+  async function send(enabled: boolean, t?: string, tone?: string) {
     setSaving(true); setErr("");
-    const r = await fetch(`/api/projects/${id}/narration`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled, text: t }) });
+    const r = await fetch(`/api/projects/${id}/narration`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled, text: t, tone }) });
     setSaving(false);
     if (!r.ok) setErr((await r.json().catch(() => ({}))).error || `Erro ${r.status}`);
     onChange();
@@ -256,6 +256,12 @@ function NarrationPanel({ id, edl, disabled, onChange }: { id: string; edl: Edl;
       </div>
       {on && (
         <div className="mt-3 space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {(["animado", "neutro", "calmo"] as const).map((tn) => (
+              <button key={tn} type="button" disabled={disabled || saving} onClick={() => send(true, edl.audio.narration?.custom ? text : undefined, tn)}
+                className={`rounded-lg border py-2 text-sm capitalize transition ${ (edl.audio.narration?.tone ?? "animado") === tn ? "border-volt bg-volt text-ink font-semibold" : "border-line hover:border-volt"}`}>{tn}</button>
+            ))}
+          </div>
           <textarea className="input !py-2 text-sm" rows={4} maxLength={2500} value={text} onChange={(e) => setText(e.target.value)} />
           <button className="btn-ghost w-full" disabled={disabled || saving || text.trim() === edl.audio.narration?.text} onClick={() => send(true, text)}>Salvar texto da narração</button>
           <p className="text-[11px] text-smoke">Precisa de ELEVENLABS_API_KEY e ELEVENLABS_VOICE_ID nos Secrets do GitHub. Áudio gerado é guardado em cache (mesmo texto não é cobrado de novo).</p>

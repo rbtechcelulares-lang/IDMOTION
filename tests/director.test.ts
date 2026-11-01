@@ -289,3 +289,13 @@ test("cérebro por projeto: corrente Opus → Haiku → Gemini e escolha 'regras
   if (!saved.ANTHROPIC_API_KEY) delete process.env.ANTHROPIC_API_KEY;
   if (!saved.GEMINI_API_KEY) delete process.env.GEMINI_API_KEY;
 });
+
+test("narração animada: texto falável (sem caixa alta, valores por extenso, exclamação)", async () => {
+  const { speakable } = await import("../shared/director/narration");
+  assert.equal(speakable("IPHONES A PARTIR DE R$ 599.", "animado", "price"), "iPhones a partir de 599 reais!");
+  assert.equal(speakable("É DIA 03/11 NA RB TECH!", "animado", "feature"), "É dia 3 de novembro na RBTech!");
+  assert.equal(speakable("Parcele em 12x no cartão.", "animado", "feature"), "Parcele em 12 vezes no cartão.");
+  assert.equal(speakable("Chama no WhatsApp.", "animado", "cta"), "Chama no WhatsApp!");
+  assert.equal(speakable("R$ 1,26 por dia", "calmo", "counter"), "1 real e 26 centavos por dia.");
+  assert.equal(speakable("Você está preparado?", "animado", "title"), "Você está preparado?");
+});

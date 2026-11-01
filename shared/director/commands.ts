@@ -197,9 +197,13 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
   }
   if ((m = low.match(/(?:volume|[aá]udio) (?:do )?(?:v[ií]deo|original|fala)[^\d]{0,10}(\d{1,3})\s*%/))) { edl.audio.sourceVolume = Math.min(2, Number(m[1]) / 100); done.push(`áudio original ${m[1]}%`); }
 
+  if (edl.audio.narration && (m = low.match(/narra(?:[çc][aã]o|dor)\s*(?:mais\s+)?(animad[oa]|empolgad[oa]|energ[eé]tic[oa]|neutr[oa]|calm[oa]|tranquil[oa])/))) {
+    const tone = /neutr/.test(m[1]) ? "neutro" : /calm|tranquil/.test(m[1]) ? "calmo" : "animado";
+    edl.audio.narration.tone = tone; done.push(`narração ${tone}`);
+  }
   if (/sem narra[çc][aã]o/.test(low)) { edl.audio.narration = null; done.push("narração removida"); }
-  else if (/narra[çc][aã]o\s*[:=]?\s*(auto|das cenas|sincronizada)/i.test(text)) { edl.audio.narration = { text: buildNarration(edl), volume: 1, voiceId: edl.audio.narration?.voiceId, custom: false }; done.push("narração sincronizada com as cenas"); }
-  else if ((m = text.match(/narra[çc][aã]o\s*[:=]\s*["“]?([^"”]+)/i))) { edl.audio.narration = { text: m[1].trim().slice(0, 2500), volume: 1, voiceId: edl.audio.narration?.voiceId, custom: true }; done.push("narração definida"); }
+  else if (/narra[çc][aã]o\s*[:=]?\s*(auto|das cenas|sincronizada)/i.test(text)) { edl.audio.narration = { text: buildNarration(edl), volume: 1, voiceId: edl.audio.narration?.voiceId, custom: false, tone: edl.audio.narration?.tone ?? "animado" }; done.push("narração sincronizada com as cenas"); }
+  else if ((m = text.match(/narra[çc][aã]o\s*[:=]\s*["“]?([^"”]+)/i))) { edl.audio.narration = { text: m[1].trim().slice(0, 2500), volume: 1, voiceId: edl.audio.narration?.voiceId, custom: true, tone: edl.audio.narration?.tone ?? "animado" }; done.push("narração definida"); }
 
   void a;
   if (!done.length) return null;
