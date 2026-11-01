@@ -45,3 +45,6 @@
 
 ## GitHub Actions mais rápido
 - Cache de node_modules (inclui Chrome do Remotion) e do bundle do Remotion pré-montado; FFmpeg intermediário em ultrafast (−40%); motor fica 4 min ligado após a análise para a exportação não esperar outra máquina.
+
+## Reenvio e exclusão
+- Projeto sem vídeo (upload falhou) permite reenviar pela própria tela; botão "Excluir projeto" apaga registro e arquivos.

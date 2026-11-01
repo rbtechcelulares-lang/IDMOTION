@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { isUuid } from "@/lib/files";
-import { loadProject, loadVersion } from "@/lib/project";
+import { activeJob, loadProject, loadVersion } from "@/lib/project";
+import { STORAGE_MODE, removeObject } from "@/lib/storage";
+import fs from "node:fs";
+import { projectDir } from "@/lib/files";
 
 // Estado completo do projeto para a tela (polling).
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,4 +27,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     messages: messages.data ?? [],
     jobs: jobs.data ?? [],
   });
+}
+
+// Exclui o projeto e seus arquivos.
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!isUuid(id)) return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  const p = await loadProject(id);
+  if (!p) return NextResponse.json({ error: "não encontrado" }, { status: 404 });
+  if (await activeJob(id)) return NextResponse.json({ error: "Aguarde o processamento terminar (ou cancele) antes de excluir" }, { status: 409 });
+  const { data: jobs } = await db().from("jobs").select("output_path").eq("project_id", id).not("output_path", "is", null);
+  const keys = [p.source_path, p.music_path, ...(p.analysis?.frames ?? []).map((f: { path: string }) => f.path), ...(jobs ?? []).map((j) => j.output_path)].filter(Boolean) as string[];
+  if (STORAGE_MODE === "local") await fs.promises.rm(projectDir(id), { recursive: true, force: true });
+  else for (const k of keys) await removeObject(k).catch(() => {});
+  await db().from("projects").delete().eq("id", id);
+  return NextResponse.json({ ok: true });
 }

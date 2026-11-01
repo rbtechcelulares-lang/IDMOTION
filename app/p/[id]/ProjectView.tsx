@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STYLE_LABEL, type Style } from "@/shared/constants";
 import type { Edl } from "@/shared/edl";
+import { upload } from "@/components/upload";
+import { VIDEO_EXT } from "@/shared/constants";
 
 type Job = { id: string; type: string; status: string; progress: number; stage: string; attempts: number; max_attempts: number; error: string | null; output_path: string | null; edl_version: number | null; created_at: string; cancel_requested: boolean;
   qc: { passed: boolean; checks: { name: string; ok: boolean; value: string; expected: string; severity: string }[]; notes: string[] } | null };
@@ -61,6 +63,7 @@ export function ProjectView({ id }: { id: string }) {
           <div className="mb-2 flex flex-wrap items-center gap-2"><StatusBadge status={p.status} /><span className="text-xs text-smoke">{p.format} · {STYLE_LABEL[p.style]} · {p.objective}</span></div>
           <h1 className="text-3xl font-bold">{p.name}</h1>
           {p.error && <p className="mt-2 text-sm text-red-400" title={p.error}>{p.error.slice(0, 160)}{p.error.length > 160 ? "…" : ""}</p>}
+          {p.status === "created" && !active && <Reupload id={id} onDone={load} />}
           {p.status === "error" && !active && <button className="btn-ghost mt-3" disabled={busy} onClick={() => post(`/api/projects/${id}/analyze`)}>Analisar de novo</button>}
         </div>
 
@@ -158,6 +161,10 @@ export function ProjectView({ id }: { id: string }) {
           </form>
         </div>
         {err && <p className="text-sm text-red-400">{err}</p>}
+        <button className="w-full text-xs text-smoke underline-offset-4 hover:text-red-400 hover:underline disabled:opacity-40" disabled={busy || !!active}
+          onClick={async () => { if (!confirm("Excluir este projeto e os vídeos dele?")) return; const r = await fetch(`/api/projects/${id}`, { method: "DELETE" }); if (r.ok) window.location.assign("/"); else setErr((await r.json().catch(() => ({}))).error || "Erro ao excluir"); }}>
+          Excluir projeto
+        </button>
       </aside>
     </main>
   );
@@ -177,6 +184,30 @@ function Progress({ job, onCancel }: { job: Job; onCancel: () => void }) {
         <span>Tentativa {Math.max(1, job.attempts)}/{job.max_attempts}</span>
         <button className="btn-ghost !py-1" onClick={onCancel} disabled={job.cancel_requested}>{job.cancel_requested ? "Cancelando…" : "Cancelar"}</button>
       </div>
+    </div>
+  );
+}
+
+function Reupload({ id, onDone }: { id: string; onDone: () => void }) {
+  const [p, setP] = useState<number | null>(null);
+  const [e, setE] = useState("");
+  return (
+    <div className="mt-4 rounded-xl border border-volt/40 p-4">
+      <p className="mb-2 text-sm">O vídeo não chegou. Envie de novo:</p>
+      <input type="file" accept={VIDEO_EXT.join(",") + ",video/*"} disabled={p !== null} className="input file:mr-3 file:rounded-md file:border-0 file:bg-volt file:px-3 file:py-1.5 file:font-semibold file:text-ink"
+        onChange={async (ev) => {
+          const f = ev.target.files?.[0];
+          if (!f) return;
+          setE(""); setP(0);
+          try {
+            await upload(id, "source", f, setP);
+            const r = await fetch(`/api/projects/${id}/analyze`, { method: "POST" });
+            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erro ${r.status}`);
+            onDone();
+          } catch (x) { setE((x as Error).message); setP(null); }
+        }} />
+      {p !== null && <div className="mt-2 h-2 overflow-hidden rounded-full bg-line"><div className="h-full bg-volt" style={{ width: `${Math.round(p * 100)}%` }} /></div>}
+      {e && <p className="mt-2 text-sm text-red-400">{e}</p>}
     </div>
   );
 }
