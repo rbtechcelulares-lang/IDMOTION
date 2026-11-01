@@ -18,6 +18,7 @@
     "@remotion/bundler": "^4.0.539",
     "@remotion/renderer": "^4.0.539",
     "@supabase/supabase-js": "^2.118.0",
+    "aws4fetch": "^1.0.20",
     "bcryptjs": "^3.0.3",
     "next": "15.5.28",
     "react": "19.1.0",

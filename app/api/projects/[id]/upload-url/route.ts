@@ -16,5 +16,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
   if (STORAGE_MODE === "local") return NextResponse.json({ mode: "local", url: `/api/projects/${id}/upload?kind=${kind}` });
   const key = `projects/${id}/${kind}${check.ext}`;
-  return NextResponse.json({ mode: "supabase", url: await signedUploadUrl(key), key });
+  return NextResponse.json({ mode: STORAGE_MODE, url: await signedUploadUrl(key), key });
 }

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DATA_DIR, db, projectDir } from "./env";
-import { STORAGE_MODE } from "./storage";
+import { removeRemote } from "./storage";
 
 const DAYS = Number(process.env.RETENTION_DAYS ?? 2);
 
@@ -14,10 +14,7 @@ export async function cleanupOldFiles() {
     if (p.status === "analyzing" || p.status === "rendering") continue;
     const { data: jobs } = await db.from("jobs").select("output_path").eq("project_id", p.id).not("output_path", "is", null);
     const keys = [p.source_path, p.music_path, ...((p.analysis?.frames ?? []) as { path: string }[]).map((f) => f.path), ...(jobs ?? []).map((j) => j.output_path)].filter(Boolean) as string[];
-    if (STORAGE_MODE === "supabase" && keys.length) {
-      const { error } = await db.storage.from(process.env.STORAGE_BUCKET || "media").remove(keys);
-      if (error) { console.error(`[cleanup] ${p.id}:`, error.message); continue; }
-    }
+    try { await removeRemote(keys); } catch (e) { console.error(`[cleanup] ${p.id}:`, (e as Error).message); continue; }
     await fs.promises.rm(projectDir(p.id), { recursive: true, force: true });
     await db.from("jobs").update({ output_path: null }).eq("project_id", p.id);
     await db.from("projects").update({ files_deleted_at: new Date().toISOString(), status: "expired" }).eq("id", p.id);
@@ -26,7 +23,7 @@ export async function cleanupOldFiles() {
   // cache de narração antigo
   const { data: tts } = await db.from("tts_cache").select("hash,path").lt("created_at", cutoff).limit(200);
   if (tts?.length) {
-    if (STORAGE_MODE === "supabase") await db.storage.from(process.env.STORAGE_BUCKET || "media").remove(tts.map((t) => t.path));
+    await removeRemote(tts.map((t) => t.path)).catch((e) => console.error("[cleanup] tts:", e.message));
     await Promise.all(tts.map((t) => fs.promises.rm(path.join(DATA_DIR, t.path), { force: true })));
     await db.from("tts_cache").delete().in("hash", tts.map((t) => t.hash));
   }

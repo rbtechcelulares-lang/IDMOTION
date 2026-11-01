@@ -1,0 +1,47 @@
+import { AwsClient } from "aws4fetch";
+
+/** Storage S3-compatível (Cloudflare R2, Backblaze B2, MinIO) — usado com STORAGE=s3. */
+let client: AwsClient | null = null;
+function cfg() {
+  const endpoint = process.env.S3_ENDPOINT?.replace(/\/+$/, "");
+  const bucket = process.env.S3_BUCKET;
+  if (!endpoint || !bucket || !process.env.S3_ACCESS_KEY_ID || !process.env.S3_SECRET_ACCESS_KEY) throw new Error("S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY não configurados");
+  client ??= new AwsClient({ accessKeyId: process.env.S3_ACCESS_KEY_ID, secretAccessKey: process.env.S3_SECRET_ACCESS_KEY, service: "s3", region: process.env.S3_REGION || "auto" });
+  return { endpoint, bucket, client };
+}
+const objectUrl = (key: string) => {
+  const { endpoint, bucket } = cfg();
+  return `${endpoint}/${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
+};
+
+/** URL pré-assinada (o navegador usa direto, sem passar pelo servidor). */
+export async function s3Presign(method: "GET" | "PUT", key: string, expiresIn = 3600, downloadName?: string) {
+  const u = new URL(objectUrl(key));
+  u.searchParams.set("X-Amz-Expires", String(expiresIn));
+  if (downloadName) u.searchParams.set("response-content-disposition", `attachment; filename="${downloadName.replace(/"/g, "")}"`);
+  const signed = await cfg().client.sign(u.toString(), { method, aws: { signQuery: true } });
+  return signed.url;
+}
+
+export async function s3Size(key: string): Promise<number | null> {
+  const r = await cfg().client.fetch(objectUrl(key), { method: "HEAD" });
+  return r.ok ? Number(r.headers.get("content-length") || 0) : null;
+}
+
+export async function s3Remove(keys: string[]) {
+  for (const k of keys) {
+    const r = await cfg().client.fetch(objectUrl(k), { method: "DELETE" });
+    if (!r.ok && r.status !== 404) throw new Error(`S3 DELETE ${k}: ${r.status}`);
+  }
+}
+
+export async function s3Get(key: string): Promise<ArrayBuffer> {
+  const r = await cfg().client.fetch(objectUrl(key));
+  if (!r.ok) throw new Error(`S3 GET ${key}: ${r.status}`);
+  return r.arrayBuffer();
+}
+
+export async function s3Put(key: string, body: Uint8Array, contentType: string) {
+  const r = await cfg().client.fetch(objectUrl(key), { method: "PUT", body: body as unknown as BodyInit, headers: { "content-type": contentType } });
+  if (!r.ok) throw new Error(`S3 PUT ${key}: ${r.status} ${(await r.text()).slice(0, 200)}`);
+}

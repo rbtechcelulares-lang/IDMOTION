@@ -36,3 +36,6 @@
 
 ## Retenção de 2 dias
 - Worker apaga (de hora em hora) fonte, trilha, frames, renders e cache de narração de projetos sem atividade há `RETENTION_DAYS` (padrão 2); projeto fica "Arquivos apagados" com histórico/EDL preservados.
+
+## Cloudflare R2
+- `STORAGE=s3` (R2/S3-compatível via `aws4fetch`): upload direto do iPhone por URL pré-assinada, download/frames por link assinado, worker baixa/sobe e a limpeza de 2 dias apaga do bucket. Sem o limite de 50 MB do Supabase grátis.

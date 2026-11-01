@@ -63,7 +63,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
   }
   await prog(0.98, "Enviando arquivo final", true);
   const key = await guard(() => store(final, "video/mp4"));
-  if (STORAGE_MODE === "supabase") await fs.promises.rm(dir, { recursive: true, force: true });
+  if (STORAGE_MODE !== "local") await fs.promises.rm(dir, { recursive: true, force: true });
   await db.from("projects").update({ status: "done", error: null, updated_at: new Date().toISOString() }).eq("id", p.id);
   return { job: { output_path: key, qc, edl_version: version } };
 }

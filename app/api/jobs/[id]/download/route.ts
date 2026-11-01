@@ -14,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { data: job } = await db().from("jobs").select("output_path,status,project_id,projects(name)").eq("id", id).maybeSingle();
   if (!job?.output_path || job.status !== "done") return NextResponse.json({ error: "Arquivo indisponível" }, { status: 404 });
   const name0 = String((job.projects as { name?: string } | null)?.name || "idmotion").replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "_") || "idmotion";
-  if (STORAGE_MODE === "supabase") {
+  if (STORAGE_MODE !== "local") {
     const inline0 = new URL(req.url).searchParams.has("inline");
     return NextResponse.redirect(await signedDownloadUrl(job.output_path, inline0 ? undefined : `${name0}.mp4`), 302);
   }

@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const { kind: k, key } = await req.json().catch(() => ({}));
   const kind = kindOf(k);
-  if (STORAGE_MODE !== "supabase") return NextResponse.json({ error: "modo local usa /upload" }, { status: 400 });
+  if (STORAGE_MODE === "local") return NextResponse.json({ error: "modo local usa /upload" }, { status: 400 });
   if (!isUuid(id) || typeof key !== "string" || !new RegExp(`^projects/${id}/${kind}\\.[a-z0-9]+$`).test(key)) return NextResponse.json({ error: "dados inválidos" }, { status: 400 });
   const size = await objectSize(key);
   if (!size) return NextResponse.json({ error: "Arquivo não chegou ao armazenamento" }, { status: 422 });
