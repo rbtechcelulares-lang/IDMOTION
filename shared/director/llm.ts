@@ -96,21 +96,27 @@ export function anthropicAsker(apiKey: string, model = process.env.AI_MODEL || "
 }
 
 /** Qualquer API compatível com OpenAI Chat Completions (Gemini, Groq, Cloudflare Workers AI, OpenRouter…). */
-export function openAiCompatAsker(o: { baseUrl: string; apiKey: string; model: string; label: string; fallbackModels?: string[] }): Asker {
+export function openAiCompatAsker(o: { baseUrl: string; apiKey: string; model: string; label: string; fallbackModels?: string[]; reasoningEffort?: string }): Asker {
   const url = `${o.baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const models = [...new Set([o.model, ...(o.fallbackModels ?? [])].filter(Boolean))];
   const one = (model: string): Asker => ({
     name: `${o.label}:${model}`,
     async ask(system, parts) {
       const content = parts.map((p) => (p.type === "text" ? { type: "text", text: p.text } : { type: "image_url", image_url: { url: `data:image/jpeg;base64,${p.jpegBase64}` } }));
-      const call = async (json: boolean) => {
+      const callPlain = (json: boolean) => openAiCompatAsker({ ...o, fallbackModels: [], model, reasoningEffort: undefined }).ask(system, json ? parts : parts);
+      const call = async (json: boolean): Promise<string> => {
         const res = await fetch(url, {
           method: "POST",
           headers: { authorization: `Bearer ${o.apiKey}`, "content-type": "application/json" },
-          body: JSON.stringify({ model, temperature: 0.7, messages: [{ role: "system", content: system }, { role: "user", content }], ...(json ? { response_format: { type: "json_object" } } : {}) }),
+          body: JSON.stringify({ model, temperature: 0.7, messages: [{ role: "system", content: system }, { role: "user", content }], ...(json ? { response_format: { type: "json_object" } } : {}), ...(o.reasoningEffort ? { reasoning_effort: o.reasoningEffort } : {}) }),
           signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 45000)),
         });
-        if (!res.ok) throw Object.assign(new Error(`${o.label} ${res.status}: ${(await res.text()).slice(0, 200)}`), { status: res.status });
+        if (!res.ok) {
+          const msg = (await res.text()).slice(0, 200);
+          // alguns modelos não aceitam reasoning_effort: repete sem
+          if (res.status === 400 && o.reasoningEffort && /reasoning/i.test(msg)) return callPlain(json);
+          throw Object.assign(new Error(`${o.label} ${res.status}: ${msg}`), { status: res.status });
+        }
         const j = (await res.json()) as { choices?: { message?: { content?: string | { text?: string }[] } }[] };
         const c = j.choices?.[0]?.message?.content;
         return typeof c === "string" ? c : (c ?? []).map((x) => x.text ?? "").join("");
@@ -137,6 +143,9 @@ export function openAiCompatAsker(o: { baseUrl: string; apiKey: string; model: s
     },
   };
 }
+
+/** Erro de conexão/HTTP/timeout (≠ JSON inválido). */
+const isTransportError = (e: unknown) => (e as { status?: number }).status !== undefined || /timeout|abort|fetch failed|ECONN|ENOTFOUND/i.test(`${(e as Error).name} ${(e as Error).message}`);
 
 export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 
@@ -173,6 +182,7 @@ export class LlmDirector implements Director {
           return withMusic(finalizeEdl({ ...raw, mode: "motion", clips: [], format: b.format }, a), b);
         } catch (e) {
           console.warn(`[director] motion tentativa ${attempt + 1} inválida:`, (e as Error).message);
+          if (isTransportError(e)) break; // IA fora do ar/lenta: não repetir a lista toda, vai para as regras
         }
       }
       return this.fallback.plan(a, b);
@@ -191,6 +201,7 @@ export class LlmDirector implements Director {
         return this.polishCaptions(withMusic(finalizeEdl({ ...raw, format: b.format }, a), b));
       } catch (e) {
         console.warn(`[director] tentativa ${attempt + 1} inválida:`, (e as Error).message);
+        if (isTransportError(e)) break;
       }
     }
     console.warn("[director] usando plano heurístico");
