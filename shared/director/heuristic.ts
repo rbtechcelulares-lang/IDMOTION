@@ -2,6 +2,7 @@ import { type Edl, EdlSchema, edlDuration } from "../edl";
 import { finalizeEdl } from "./finalize";
 import { applyCommands } from "./commands";
 import { pickCta } from "./knowledge";
+import { chooseTrack, trackVolume } from "./music";
 import { fixText, newReport, reportLine } from "./textfix";
 import type { Analysis, Brief, Director } from "./types";
 
@@ -84,9 +85,16 @@ export function motionPlan(b: Brief): Edl {
     mode: "motion", format: b.format, preset: b.style, clips: [], motion: { scenes: scenes.slice(0, 30) },
     captions: { enabled: false, position: "bottom", size: "md", items: [] },
     overlays: { intro: null, texts: [], price: null, cta: null },
-    audio: { sourceVolume: 1, music: b.hasMusic ? { volume: 0.9 } : null, narration: p.narration ? { text: p.narration, volume: 1 } : null, normalize: true },
+    audio: { sourceVolume: 1, music: musicFor(b, true), narration: p.narration ? { text: p.narration, volume: 1 } : null, normalize: true },
     notes: `Vídeo 100% motion (sem vídeo-fonte).${reportLine(rep) ? ` Revisão: ${reportLine(rep)}` : ""}`.slice(0, 500),
   });
+}
+
+/** Trilha: a enviada pelo usuário ou uma gerada que combine com o vídeo. */
+export function musicFor(b: Brief, motion: boolean) {
+  if (b.hasMusic) return { volume: motion ? 0.9 : b.style === "viral" ? 0.22 : 0.16, track: null };
+  const track = chooseTrack({ style: b.style, objective: b.objective, text: b.instructions, seed: b.name });
+  return { volume: trackVolume(track.genre, motion), track };
 }
 
 export function heuristicPlan(a: Analysis, b: Brief): Edl {
@@ -120,7 +128,7 @@ export function heuristicPlan(a: Analysis, b: Brief): Edl {
     },
     audio: {
       sourceVolume: 1,
-      music: b.hasMusic ? { volume: b.style === "viral" ? 0.22 : 0.16 } : null,
+      music: musicFor(b, false),
       narration: p.narration ? { text: p.narration, volume: 1 } : null,
       normalize: true,
     },

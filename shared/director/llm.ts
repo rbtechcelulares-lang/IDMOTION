@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { type Edl, EdlSchema } from "../edl";
 import { finalizeEdl } from "./finalize";
-import { HeuristicDirector } from "./heuristic";
+import { HeuristicDirector, musicFor } from "./heuristic";
 import type { Analysis, Brief, Director } from "./types";
 import { RBTECH_GUIDE } from "./knowledge";
 
@@ -18,17 +18,19 @@ const SCHEMA_DOC = `EDL JSON (tempos em segundos; clips usam o tempo do vídeo-f
    "price": {"start","end","value": "R$ 4.299","label"?: string} | null,
    "cta": {"text": string<=60, "sub"?: string, "duration": 1-8} | null
  },
- "audio": {"sourceVolume": 0-2, "music": {"volume": 0-1} | null, "narration": {"text": string, "voiceId"?: string, "volume": 0-2} | null, "normalize": true},
+ "audio": {"sourceVolume": 0-2, "music": {"volume": 0-1, "track": {"genre":"trap"|"pop"|"light","bpm":60-180,"shift":-6..6,"seed":1-9999} | null} | null, "narration": {"text": string, "voiceId"?: string, "volume": 0-2} | null, "normalize": true},
  "notes": string<=500
 }
-Regras: captions.items fica vazio (o sistema gera a partir da transcrição). Clipes em ordem narrativa, sem pausas, muletas ("é", "hum", "então") ou repetições. Não invente preço: use só o que estiver nas instruções/transcrição. music só se hasMusic=true.`;
+Regras: captions.items fica vazio (o sistema gera a partir da transcrição). Clipes em ordem narrativa, sem pausas, muletas ("é", "hum", "então") ou repetições. Não invente preço: use só o que estiver nas instruções/transcrição.
+TRILHA: se hasMusic=true use {"volume":0.16-0.22,"track":null} (trilha enviada). Se hasMusic=false ESCOLHA uma trilha gerada: trap = energia/venda direta (130-150 bpm),
+pop = animado/lançamento/leve (98-114), light = premium/calmo/clean (80-92); volume 0.16-0.2 com fala; varie bpm/shift/seed a cada vídeo.`;
 
 const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
 {"mode":"motion","format":...,"preset":...,"clips":[],"motion":{"scenes":[{"kind":"title"|"feature"|"price"|"cta","text":string<=90,"sub"?:string<=120,"duration":0.8-8}]},
  "captions":{"enabled":false,"position":"bottom","size":"md","items":[]},"overlays":{"intro":null,"texts":[],"price":null,"cta":null},
- "audio":{"sourceVolume":1,"music":{"volume":0.9}|null,"narration":{"text":string,"volume":1}|null,"normalize":true},"notes":string}
+ "audio":{"sourceVolume":1,"music":{"volume":0.9,"track":{"genre":"trap"|"pop"|"light","bpm":number,"shift":number,"seed":number}|null},"narration":{"text":string,"volume":1}|null,"normalize":true},"notes":string}
 Regras: 1ª cena "title", última "cta". Textos curtos e fortes (até ~8 palavras); em "price" o text é o valor ("R$ 499,90") e sub o contexto ("iPhones a partir de").
-Use só informações das instruções. Duração total típica 12-30s. music só se hasMusic=true.`;
+Use só informações das instruções. Duração total típica 12-30s. Trilha: se hasMusic=true use "track":null; senão escolha track (trap energia, pop animado, light premium) com volume 0.9.`;
 
 const STYLE_GUIDE = `${RBTECH_GUIDE}\nEstilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;
 
@@ -43,6 +45,13 @@ function summarize(a: Analysis) {
     `trechos de fala (${a.transcriptProvider}):`,
     ...(segs.length ? segs : ["(sem fala detectada)"]),
   ].join("\n");
+}
+
+/** Sempre há trilha: a enviada (track null) ou uma gerada que combine (se a IA não escolheu). */
+function withMusic(edl: Edl, b: Brief): Edl {
+  if (b.hasMusic) edl.audio.music = { volume: edl.audio.music?.volume ?? (edl.mode === "motion" ? 0.9 : 0.18), track: null };
+  else if (!edl.audio.music?.track) edl.audio.music = musicFor(b, edl.mode === "motion");
+  return edl;
 }
 
 function extractJson(text: string): unknown {
@@ -100,7 +109,7 @@ export class ClaudeDirector implements Director {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const raw = extractJson(await this.ask(system, [{ type: "text", text }])) as Record<string, unknown>;
-          return finalizeEdl({ ...raw, mode: "motion", clips: [], format: b.format }, a);
+          return withMusic(finalizeEdl({ ...raw, mode: "motion", clips: [], format: b.format }, a), b);
         } catch (e) {
           console.warn(`[director] motion tentativa ${attempt + 1} inválida:`, (e as Error).message);
         }
@@ -118,7 +127,7 @@ export class ClaudeDirector implements Director {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const raw = extractJson(await this.ask(system, content)) as Record<string, unknown>;
-        return this.polishCaptions(finalizeEdl({ ...raw, format: b.format }, a));
+        return this.polishCaptions(withMusic(finalizeEdl({ ...raw, format: b.format }, a), b));
       } catch (e) {
         console.warn(`[director] tentativa ${attempt + 1} inválida:`, (e as Error).message);
       }

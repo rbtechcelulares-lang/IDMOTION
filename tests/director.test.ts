@@ -109,3 +109,24 @@ test("revisor de texto: corrige, padroniza marcas e descarta o sem sentido", asy
   assert.match(reportLine(rep), /Corrigi: .*perfums → perfumes/);
   assert.match(reportLine(rep), /Descartei: .*asdfgh kkkkk/);
 });
+
+test("trilha: diretor escolhe e varia; chat troca estilo", async () => {
+  const { chooseTrack } = await import("../shared/director/music");
+  const { motionPlan } = await import("../shared/director/heuristic");
+  assert.equal(chooseTrack({ style: "viral", objective: "Venda", seed: "a" }).genre, "trap");
+  assert.equal(chooseTrack({ style: "premium", objective: "Venda", seed: "a" }).genre, "light");
+  assert.equal(chooseTrack({ style: "viral", objective: "Lançamento", seed: "a" }).genre, "pop");
+  const t1 = chooseTrack({ style: "viral", seed: "Projeto A" }), t2 = chooseTrack({ style: "viral", seed: "Projeto B" });
+  assert.ok(t1.bpm >= 130 && t1.bpm <= 150);
+  assert.notDeepEqual([t1.bpm, t1.shift, t1.seed], [t2.bpm, t2.shift, t2.seed]);
+  const edl = motionPlan({ name: "X", format: "9:16", style: "premium", objective: "Venda", hasMusic: false, hasVideo: false, instructions: "Linha 1\nChama no direct" });
+  assert.equal(edl.audio.music?.track?.genre, "light");
+  const withUpload = motionPlan({ name: "X", format: "9:16", style: "premium", objective: "Venda", hasMusic: true, hasVideo: false, instructions: "Linha 1" });
+  assert.equal(withUpload.audio.music?.track, null);
+  const r = applyCommands(edl, "trilha trap", a)!;
+  assert.equal(r.edl.audio.music?.track?.genre, "trap");
+  const r2 = applyCommands(r.edl, "trilha mais rápida, trilha 40%", a)!;
+  assert.equal(r2.edl.audio.music?.track?.bpm, r.edl.audio.music!.track!.bpm + 12);
+  assert.equal(r2.edl.audio.music?.volume, 0.4);
+  assert.equal(applyCommands(r2.edl, "sem trilha", a)!.edl.audio.music, null);
+});

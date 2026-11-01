@@ -45,7 +45,11 @@ export const EdlSchema = z.object({
   }),
   audio: z.object({
     sourceVolume: z.number().min(0).max(2).default(1),
-    music: z.object({ volume: z.number().min(0).max(1).default(0.18) }).nullable().default(null),
+    // track = trilha gerada pelo diretor (quando o projeto não tem trilha enviada)
+    music: z.object({
+      volume: z.number().min(0).max(1).default(0.18),
+      track: z.object({ genre: z.enum(["trap", "pop", "light"]), bpm: z.number().min(60).max(180).default(110), shift: z.number().int().min(-6).max(6).default(0), seed: z.number().int().min(1).max(9999).default(1) }).nullable().default(null),
+    }).nullable().default(null),
     narration: z.object({ text: z.string().min(1).max(2500), voiceId: z.string().max(64).optional(), volume: z.number().min(0).max(2).default(1) }).nullable().default(null),
     normalize: z.boolean().default(true),
   }),

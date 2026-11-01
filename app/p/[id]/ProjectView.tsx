@@ -113,7 +113,7 @@ export function ProjectView({ id }: { id: string }) {
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               <Stat k="Abertura" v={edl.overlays.intro?.text ?? "—"} /><Stat k="CTA" v={edl.overlays.cta?.text ?? "—"} />
               <Stat k="Preço" v={edl.overlays.price?.value ?? "—"} /><Stat k="Legendas" v={edl.captions.enabled ? `${edl.captions.items.length} · ${edl.captions.size} · ${edl.captions.position}` : "desligadas"} />
-              <Stat k="Trilha" v={edl.audio.music ? `${Math.round(edl.audio.music.volume * 100)}%` : "—"} /><Stat k="Narração" v={edl.audio.narration ? "sim" : "—"} />
+              <Stat k="Trilha" v={edl.audio.music ? `${edl.audio.music.track ? `${edl.audio.music.track.genre} ${edl.audio.music.track.bpm} bpm` : "enviada"} · ${Math.round(edl.audio.music.volume * 100)}%` : "—"} /><Stat k="Narração" v={edl.audio.narration ? "sim" : "—"} />
             </div>
           </div>
         )}

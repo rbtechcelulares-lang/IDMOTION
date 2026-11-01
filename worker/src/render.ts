@@ -3,6 +3,8 @@ import path from "node:path";
 import { EdlSchema } from "../../shared/edl";
 import { Cancelled, db, projectDir } from "./env";
 import { buildBase, buildMotionBase } from "./engine";
+import { synthTrack, writeWav } from "./music";
+import { clipDuration, edlDuration } from "../../shared/edl";
 import { composite, hasOverlay, renderOverlay } from "./overlay";
 import { killAll } from "./proc";
 import { runQc } from "./qc";
@@ -37,9 +39,22 @@ export async function runRender(job: Job, ctx: JobCtx) {
     narration = r.file;
     if (r.note) notes.push(r.note);
   }
-  if (edl.audio.music && !p.music_path) notes.push("Trilha ignorada: nenhum arquivo de trilha no projeto.");
+  if (edl.audio.music && !p.music_path && !edl.audio.music.track) notes.push("Trilha ignorada: nenhum arquivo de trilha no projeto.");
 
-  const music = p.music_path ? await guard(() => ensureLocal(p.music_path)) : null;
+  let music = p.music_path ? await guard(() => ensureLocal(p.music_path)) : null;
+  const track = edl.audio.music?.track;
+  if (!music && track) {
+    // trilha gerada: brilhos nas trocas de cena/corte e impacto no início do CTA
+    await prog(0.03, `Compondo trilha ${track.genre} (${track.bpm} bpm)`, true);
+    const total = edlDuration(edl);
+    const cuts: number[] = [];
+    let acc = 0;
+    for (const d of edl.mode === "motion" ? (edl.motion?.scenes ?? []).map((s) => s.duration) : edl.clips.map(clipDuration)) { acc += d; cuts.push(acc); }
+    const ctaStart = edl.mode === "motion" ? total - (edl.motion?.scenes.at(-1)?.kind === "cta" ? edl.motion.scenes.at(-1)!.duration : 0) : edl.overlays.cta ? total - edl.overlays.cta.duration : null;
+    music = path.join(dir, "trilha.wav");
+    writeWav(music, synthTrack({ ...track, bells: cuts.slice(0, -1).filter((t) => t < total - 0.5), hit: ctaStart && ctaStart < total ? ctaStart : null }, total));
+    notes.push(`Trilha gerada: ${track.genre}, ${track.bpm} bpm.`);
+  }
   const base = path.join(dir, "base.mp4");
   let duration: number;
   if (edl.mode === "motion") {

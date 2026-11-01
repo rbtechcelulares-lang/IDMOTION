@@ -2,6 +2,7 @@ import { type Edl, edlDuration } from "../edl";
 import { FORMATS, STYLES, type Format, type Style } from "../constants";
 import type { Analysis } from "./types";
 import { fixText } from "./textfix";
+import { trackFor, trackVolume, type Genre } from "./music";
 
 export const COMMAND_HELP = [
   "estilo viral | cinematic | premium",
@@ -14,7 +15,7 @@ export const COMMAND_HELP = [
   "abertura: Novo iPhone / sem abertura",
   "texto: Garantia de 1 ano",
   "legenda maior | menor | no centro | embaixo | em cima | sem legenda | com legenda",
-  "volume da música 30% / sem música",
+  "trilha trap | pop | light · outra trilha · trilha mais rápida · volume da música 30% · sem trilha",
   "narração: texto… / sem narração",
 ];
 
@@ -125,8 +126,26 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
   if (/legenda\w* (embaixo|em baixo|abaixo|no rodap[eé])/.test(low)) { edl.captions.position = "bottom"; done.push("legenda embaixo"); }
   if (/legenda\w* (em cima|no topo|acima)/.test(low)) { edl.captions.position = "top"; done.push("legenda em cima"); }
 
+  const isMotion = edl.mode === "motion";
+  const cur = edl.audio.music;
   if (/sem m[uú]sica|sem trilha/.test(low)) { edl.audio.music = null; done.push("trilha desligada"); }
-  else if ((m = low.match(/(?:m[uú]sica|trilha)[^\d]{0,20}(\d{1,3})\s*%/))) { edl.audio.music = { volume: Math.min(1, Number(m[1]) / 100) }; done.push(`trilha ${m[1]}%`); }
+  else {
+    if ((m = low.match(/(?:m[uú]sica|trilha)\s*(?:de\s+|estilo\s+|tipo\s+)?(trap|pop|light|leve|calma|animada|premium)\b/))) {
+      const g: Genre = m[1] === "trap" ? "trap" : m[1] === "pop" || m[1] === "animada" ? "pop" : "light";
+      edl.audio.music = { volume: cur?.track ? cur.volume : trackVolume(g, isMotion), track: trackFor(g, `${g}${Date.now()}`) };
+      done.push(`trilha ${g}`);
+    }
+    if (/(outra|nova|troca\w*( a)?) (m[uú]sica|trilha)/.test(low)) {
+      const g: Genre = edl.audio.music?.track?.genre ?? "pop";
+      edl.audio.music = { volume: edl.audio.music?.volume ?? trackVolume(g, isMotion), track: trackFor(g, `${g}${Date.now()}`, 1) };
+      done.push(`nova trilha ${g}`);
+    }
+    if (/com (m[uú]sica|trilha)/.test(low) && !edl.audio.music) { edl.audio.music = { volume: trackVolume("pop", isMotion), track: trackFor("pop", String(Date.now())) }; done.push("trilha ligada"); }
+    const tr = edl.audio.music?.track;
+    if (tr && /(m[uú]sica|trilha) mais r[aá]pida/.test(low)) { tr.bpm = Math.min(180, tr.bpm + 12); done.push(`trilha ${tr.bpm} bpm`); }
+    if (tr && /(m[uú]sica|trilha) mais lenta/.test(low)) { tr.bpm = Math.max(60, tr.bpm - 12); done.push(`trilha ${tr.bpm} bpm`); }
+    if ((m = low.match(/(?:m[uú]sica|trilha)[^\d]{0,20}(\d{1,3})\s*%/))) { edl.audio.music = { track: edl.audio.music?.track ?? null, volume: Math.min(1, Number(m[1]) / 100) }; done.push(`trilha ${m[1]}%`); }
+  }
   if ((m = low.match(/(?:volume|[aá]udio) (?:do )?(?:v[ií]deo|original|fala)[^\d]{0,10}(\d{1,3})\s*%/))) { edl.audio.sourceVolume = Math.min(2, Number(m[1]) / 100); done.push(`áudio original ${m[1]}%`); }
 
   if (/sem narra[çc][aã]o/.test(low)) { edl.audio.narration = null; done.push("narração removida"); }

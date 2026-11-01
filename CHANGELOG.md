@@ -56,3 +56,6 @@
 - Diretor com o guia RBTech (marca, estrutura gancho→produto→motivo→prova→chamada, só afirmar o que o cliente disse, variar a chamada) no prompt do Claude.
 - Revisor automático (sem IA): corrige grafia/acentos/marcas (iPhone, RBTech, seminovos, WhatsApp, 12x, R$), descarta letras e frases sem sentido e muletas; relatório "Revisão: Corrigi… Descartei…" no chat. Com Claude, revisão extra das legendas.
 - Vídeos na identidade RBTech: Poppins (embutida, OFL) + amarelo #FFD60A + preto #0F0F0F.
+
+## Trilhas automáticas
+- Sem trilha enviada, o diretor escolhe e compõe uma (trap, pop ou light, portadas da skill RBTech para TypeScript, sem direitos de terceiros), variando bpm/tom/semente por projeto; brilhos nas trocas de cena e impacto no CTA; ducking sob a fala. Chat: "trilha trap|pop|light", "outra trilha", "trilha mais rápida/lenta", "sem trilha".
