@@ -7,7 +7,9 @@ export async function configProblems(): Promise<string[]> {
   const env = process.env;
   if (!env.SUPABASE_URL) p.push("Falta a variável SUPABASE_URL.");
   else if (!/^https?:\/\/.+/.test(env.SUPABASE_URL.trim())) p.push("SUPABASE_URL inválida: deve começar com https:// (ex.: https://abcd.supabase.co).");
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) p.push("Falta a variável SUPABASE_SERVICE_ROLE_KEY (chave secret sb_secret_…).");
+  const key = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!key) p.push("Falta a variável SUPABASE_SERVICE_ROLE_KEY (chave secret sb_secret_…).");
+  else if (key.startsWith("sb_publishable_") || jwtRole(key) === "anon") p.push("SUPABASE_SERVICE_ROLE_KEY está com a chave PÚBLICA (publishable/anon). Use a chave SECRET (sb_secret_… ou service_role).");
   if (!env.SESSION_SECRET) p.push("Falta a variável SESSION_SECRET.");
   else if (env.SESSION_SECRET.trim().length < 32) p.push("SESSION_SECRET muito curta (mínimo 32 caracteres).");
   if (env.STORAGE === "s3") {
@@ -28,4 +30,10 @@ export async function configProblems(): Promise<string[]> {
     p.push(`Não consegui conectar ao Supabase (confira SUPABASE_URL): ${(e as Error).message.slice(0, 120)}`);
   }
   return p;
+}
+
+function jwtRole(key: string): string | null {
+  const part = key.split(".")[1];
+  if (!part) return null;
+  try { return JSON.parse(Buffer.from(part, "base64url").toString()).role ?? null; } catch { return null; }
 }

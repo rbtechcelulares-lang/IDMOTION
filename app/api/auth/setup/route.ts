@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { createPassword, passwordExists, startSession } from "@/lib/auth";
 
 export async function POST(req: Request) {
+  try {
+    return await handle(req);
+  } catch (e) {
+    const msg = (e as { code?: string; message?: string });
+    console.error("[auth]", msg);
+    const hint = msg.code === "42501" ? " A chave do Supabase não tem permissão: use a chave SECRET em SUPABASE_SERVICE_ROLE_KEY." : "";
+    return NextResponse.json({ error: `Erro no servidor: ${msg.message ?? "desconhecido"}.${hint}` }, { status: 500 });
+  }
+}
+
+async function handle(req: Request) {
   const { password, confirm, setupCode } = await req.json().catch(() => ({}));
   if (await passwordExists()) return NextResponse.json({ error: "Senha já criada. Use o login." }, { status: 409 });
   const required = process.env.SETUP_CODE;

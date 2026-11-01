@@ -26,7 +26,7 @@ export async function createPassword(password: string): Promise<boolean> {
   const { error } = await db().from("app_auth").insert({ id: 1, password_hash: hash });
   if (error) {
     if (error.code === "23505") return false;
-    throw error;
+    throw Object.assign(new Error(error.message), { code: error.code });
   }
   return true;
 }
