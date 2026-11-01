@@ -28,7 +28,7 @@ export async function createSessionToken(): Promise<string> {
 }
 
 export async function verifySessionToken(token: string | undefined): Promise<boolean> {
-  if (!token) return false;
+  if (!token || !process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) return false;
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return false;
   const expected = await hmac(payload);
