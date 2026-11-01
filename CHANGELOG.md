@@ -42,3 +42,6 @@
 
 ## Motor no GitHub Actions (grátis)
 - Worker com `WORKER_ONCE=1` (processa a fila e encerra); workflow `.github/workflows/worker.yml` acionado pelo app via `repository_dispatch` (`GITHUB_DISPATCH_TOKEN`) e a cada 6 h (fila + limpeza); pula em silêncio sem secrets.
+
+## GitHub Actions mais rápido
+- Cache de node_modules (inclui Chrome do Remotion) e do bundle do Remotion pré-montado; FFmpeg intermediário em ultrafast (−40%); motor fica 4 min ligado após a análise para a exportação não esperar outra máquina.

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { makeCancelSignal, renderMedia, selectComposition } from "@remotion/renderer";
@@ -7,8 +8,9 @@ import { run } from "./proc";
 import { parseTime } from "./engine";
 
 let bundled: Promise<string> | null = null;
+const prebuilt = process.env.REMOTION_BUNDLE;
 const getBundle = () =>
-  (bundled ??= bundle({ entryPoint: path.resolve(__dirname, "../../remotion/index.ts") }).catch((e) => { bundled = null; throw e; }));
+  (bundled ??= prebuilt && fs.existsSync(path.join(prebuilt, "index.html")) ? Promise.resolve(prebuilt) : bundle({ entryPoint: path.resolve(__dirname, "../../remotion/index.ts") }).catch((e) => { bundled = null; throw e; }));
 
 export const hasOverlay = (edl: Edl) =>
   !!(edl.overlays.intro || edl.overlays.cta || edl.overlays.price || edl.overlays.texts.length || (edl.captions.enabled && edl.captions.items.length) || edl.preset === "cinematic");
@@ -26,7 +28,8 @@ export async function renderOverlay(edl: Edl, out: string, onProgress: (p: numbe
       serveUrl, composition, inputProps, browserExecutable, cancelSignal,
       codec: "prores", proResProfile: "4444", imageFormat: "png", pixelFormat: "yuva444p10le", muted: true,
       outputLocation: out,
-      concurrency: Number(process.env.REMOTION_CONCURRENCY) || null,
+      // ex.: "100%" usa todos os núcleos (padrão do Remotion é metade)
+      concurrency: process.env.REMOTION_CONCURRENCY ? (/%$/.test(process.env.REMOTION_CONCURRENCY) ? process.env.REMOTION_CONCURRENCY : Number(process.env.REMOTION_CONCURRENCY)) : null,
       onProgress: ({ progress }) => onProgress(progress),
       chromiumOptions: { gl: "swangle" },
     });

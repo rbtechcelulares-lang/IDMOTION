@@ -13,6 +13,8 @@ const POLL_MS = Number(process.env.WORKER_POLL_MS || 2000);
 // WORKER_ONCE=1 (GitHub Actions): processa a fila e encerra quando ela esvaziar.
 const ONCE = process.env.WORKER_ONCE === "1";
 const ONCE_IDLE_MS = Number(process.env.WORKER_ONCE_IDLE_MS || 20000);
+// depois de uma análise, fica ligado esperando a exportação (evita ligar outra máquina)
+const ONCE_AFTER_ANALYZE_MS = Number(process.env.WORKER_ONCE_AFTER_ANALYZE_MS || 240000);
 let stopping = false;
 
 async function finish(job: Job, patch: Record<string, unknown>, projectPatch?: Record<string, unknown>) {
@@ -57,6 +59,7 @@ async function loop() {
   await db.from("jobs").update({ status: "queued" }).eq("status", "running");
   let lastCleanup = 0;
   let idleSince = Date.now();
+  let idleLimit = ONCE_IDLE_MS;
   while (!stopping) {
     if (Date.now() - lastCleanup > 3600_000) {
       lastCleanup = Date.now();
@@ -68,8 +71,9 @@ async function loop() {
     if (job) {
       await handle(job);
       idleSince = Date.now();
+      idleLimit = job.type === "analyze" ? ONCE_AFTER_ANALYZE_MS : ONCE_IDLE_MS;
     } else {
-      if (ONCE && Date.now() - idleSince > ONCE_IDLE_MS) {
+      if (ONCE && Date.now() - idleSince > idleLimit) {
         console.log("[worker] fila vazia, encerrando (modo once)");
         return;
       }

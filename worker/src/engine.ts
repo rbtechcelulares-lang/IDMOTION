@@ -13,7 +13,7 @@ export type BaseInputs = { source: string; hasAudio: boolean; music?: string | n
  * Monta o vídeo-base a partir do EDL: cortes (seek por clipe), velocidade, punch-in,
  * resize/crop para o formato, junção, mixagem (fala + trilha com ducking + narração) e loudnorm.
  */
-export function buildBaseArgs(edl: Edl, inp: BaseInputs, out: string): { args: string[]; duration: number } {
+export function buildBaseArgs(edl: Edl, inp: BaseInputs, out: string, intermediate = false): { args: string[]; duration: number } {
   const { width: W, height: H } = FORMAT_SIZE[edl.format];
   const total = edlDuration(edl);
   const args = ["-y", "-hide_banner", "-loglevel", "error", "-stats", "-stats_period", "0.5"];
@@ -63,7 +63,8 @@ export function buildBaseArgs(edl: Edl, inp: BaseInputs, out: string): { args: s
   args.push(
     "-filter_complex", f.join(";"),
     "-map", "[vout]", "-map", "[aout]",
-    "-c:v", "libx264", "-preset", process.env.FFMPEG_PRESET || "veryfast", "-crf", process.env.FFMPEG_CRF || "18", "-pix_fmt", "yuv420p", "-r", String(edl.fps),
+    // intermediário (vai ser recodificado na composição): ultrafast + qualidade alta
+    "-c:v", "libx264", "-preset", intermediate ? "ultrafast" : process.env.FFMPEG_PRESET || "veryfast", "-crf", intermediate ? "14" : process.env.FFMPEG_CRF || "18", "-pix_fmt", "yuv420p", "-r", String(edl.fps),
     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
     "-t", f3(total), "-movflags", "+faststart", out,
   );
@@ -75,8 +76,8 @@ export const parseTime = (line: string) => {
   return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
 };
 
-export async function buildBase(edl: Edl, inp: BaseInputs, out: string, onProgress: (p: number) => void) {
-  const { args, duration } = buildBaseArgs(edl, inp, out);
+export async function buildBase(edl: Edl, inp: BaseInputs, out: string, onProgress: (p: number) => void, intermediate = false) {
+  const { args, duration } = buildBaseArgs(edl, inp, out, intermediate);
   await run(FFMPEG, args, { onLine: (l) => { const t = parseTime(l); if (t !== null) onProgress(Math.min(1, t / duration)); } });
   if (edl.audio.normalize) await fixLoudness(out);
   return duration;

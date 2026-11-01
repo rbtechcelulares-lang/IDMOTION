@@ -52,15 +52,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - name: FFmpeg e fontes
         run: |
-          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq; sudo apt-get install -y -qq ffmpeg; fi
-          sudo apt-get install -y -qq fonts-dejavu-core fonts-liberation || true
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          fc-list | grep -qi dejavu || sudo apt-get install -y -qq fonts-dejavu-core || true
           ffmpeg -version | head -1
+      - name: Cache de dependências e Chrome
+        id: nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Dependências
-        run: npm ci --no-audit --no-fund
-      - name: Navegador do Remotion
-        run: npx remotion browser ensure
+        if: steps.nm.outputs.cache-hit != 'true'
+        run: npm ci --no-audit --no-fund && npx remotion browser ensure
+      - name: Cache do bundle do Remotion
+        id: rb
+        uses: actions/cache@v4
+        with:
+          path: .remotion-bundle
+          key: rb-${{ hashFiles('remotion/**', 'shared/**', 'package-lock.json') }}
+      - name: Bundle do Remotion
+        if: steps.rb.outputs.cache-hit != 'true'
+        run: npx tsx worker/src/prebundle.ts
+        env:
+          REMOTION_BUNDLE: ${{ github.workspace }}/.remotion-bundle
       - name: Processar fila
         run: npx tsx worker/src/index.ts
+        env:
+          REMOTION_BUNDLE: ${{ github.workspace }}/.remotion-bundle

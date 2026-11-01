@@ -42,7 +42,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
   const source = await guard(() => ensureLocal(p.source_path));
   const music = p.music_path ? await guard(() => ensureLocal(p.music_path)) : null;
   const base = path.join(dir, "base.mp4");
-  const duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)")));
+  const duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)"), hasOverlay(edl)));
 
   const final = path.join(dir, "final.mp4");
   if (hasOverlay(edl)) {
