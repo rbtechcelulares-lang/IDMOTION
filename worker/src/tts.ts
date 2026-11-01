@@ -12,13 +12,14 @@ const TONE_SETTINGS = {
   calmo: { stability: 0.7, similarity_boost: 0.75, style: 0.05, use_speaker_boost: true, speed: 0.95 },
 } as const;
 
-export async function narrationFile(text: string, voiceId?: string, tone: keyof typeof TONE_SETTINGS = "animado"): Promise<{ file: string | null; note?: string }> {
+/** ctx: frase anterior/próxima — a ElevenLabs usa para manter a entonação contínua entre falas separadas. */
+export async function narrationFile(text: string, voiceId?: string, tone: keyof typeof TONE_SETTINGS = "animado", ctx: { previous?: string; next?: string } = {}): Promise<{ file: string | null; note?: string }> {
   const key = process.env.ELEVENLABS_API_KEY;
   const voice = voiceId || process.env.ELEVENLABS_VOICE_ID;
   if (!key || !voice) return { file: null, note: "Narração ignorada: ELEVENLABS_API_KEY/ELEVENLABS_VOICE_ID não configurados." };
   const model = process.env.ELEVENLABS_TTS_MODEL || "eleven_multilingual_v2";
   const settings = TONE_SETTINGS[tone] ?? TONE_SETTINGS.animado;
-  const hash = crypto.createHash("sha256").update(`${model}|${voice}|${tone}|${text}`).digest("hex");
+  const hash = crypto.createHash("sha256").update(`${model}|${voice}|${tone}|${ctx.previous ?? ""}|${text}|${ctx.next ?? ""}`).digest("hex");
 
   const { data: hit } = await db.from("tts_cache").select("path").eq("hash", hash).maybeSingle();
   if (hit) {
@@ -29,7 +30,7 @@ export async function narrationFile(text: string, voiceId?: string, tone: keyof 
   const res = await fetch(`${process.env.ELEVENLABS_API_URL || "https://api.elevenlabs.io"}/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
     method: "POST",
     headers: { "xi-api-key": key, "content-type": "application/json", accept: "audio/mpeg" },
-    body: JSON.stringify({ text, model_id: model, voice_settings: settings }),
+    body: JSON.stringify({ text, model_id: model, voice_settings: settings, ...(ctx.previous ? { previous_text: ctx.previous } : {}), ...(ctx.next ? { next_text: ctx.next } : {}) }),
   });
   if (!res.ok) throw new Error(`ElevenLabs TTS ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const file = path.join(DATA_DIR, "tts", `${hash}.mp3`);

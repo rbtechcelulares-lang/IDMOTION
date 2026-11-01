@@ -92,3 +92,7 @@
 ## Fundo contínuo e preços falados por extenso
 - Fundos por cena agora em camada contínua com transição (sem "piscar" o fundo base entre cenas); ícones flutuantes mudam de cor conforme o fundo da cena; selo de preço entra junto com o valor; subtítulos sem asteriscos.
 - Narração: números por extenso em português (preços com reais e centavos, parcelas, datas, anos, porcentagens).
+
+## Narração com contexto e skill RBTech completa
+- Cada fala vai para a ElevenLabs com a frase anterior e a próxima (previous_text/next_text) — entonação contínua; silêncio das pontas cortado; cena dura a fala + respiro curto (sem silêncio morto).
+- Skill RBTech completa (princípio, assinatura, matriz de variação, zoom, oratória, anti-cópia) no cérebro criativo (Opus, Haiku e Gemini).

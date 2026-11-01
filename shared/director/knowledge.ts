@@ -3,6 +3,7 @@
  * Mude aqui para ajustar o "jeito RBTech" de editar.
  */
 import { TRENDS, trendsForPrompt } from "./trends";
+import { SKILL_RBTECH } from "./skill-rbtech";
 
 export const RBTECH_GUIDE_BASE = `CONHECIMENTO RBTECH (loja de iPhones e celulares em Florianópolis/SC — Palhoça, São José e região)
 Marca: amarelo #FFD60A + preto #0F0F0F + branco, Poppins Bold, cantos arredondados. Escreva "RBTech" e "iPhone" (nunca "rbtec", "Iphone").
@@ -21,7 +22,7 @@ REVISÃO DE TEXTO (obrigatória, como um revisor humano):
 - Descarte letras soltas, palavras digitadas por engano, frases sem sentido, repetições e muletas ("é", "hum", "né", "então", "tipo").
 - Encurte para caber na tela (até ~8 palavras por card) sem perder o sentido nem os números.
 - Nunca troque números, preços ou condições ao corrigir.`;
-export const RBTECH_GUIDE = [RBTECH_GUIDE_BASE, trendsForPrompt()].filter(Boolean).join("\n");
+export const RBTECH_GUIDE = [RBTECH_GUIDE_BASE, SKILL_RBTECH, trendsForPrompt()].filter(Boolean).join("\n");
 
 /** Chamadas finais variadas (escolhidas pelo nome do projeto para não repetir sempre a mesma). */
 export const CTA_OPTIONS = [...new Set(["Chama no WhatsApp", "Fala com a gente no direct", "Garanta o seu na RBTech", "Vem pra RBTech", "Chama no direct e garanta o seu", ...TRENDS.ctas])];

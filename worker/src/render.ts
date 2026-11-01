@@ -41,15 +41,27 @@ export async function runRender(job: Job, ctx: JobCtx) {
     // narração cena por cena: a voz fala o texto da tela no início de cada cena; cena estica se a fala for maior
     await prog(0.02, "Narração cena por cena (ElevenLabs)", true);
     const clips: { file: string; dur: number }[] = [];
-    for (const s of edl.motion.scenes) {
-      const r = await guard(() => narrationFile(speakable(sceneLine(s), edl.audio.narration!.tone, s.kind), edl.audio.narration!.voiceId, edl.audio.narration!.tone));
+    const n = edl.audio.narration;
+    const lines = edl.motion.scenes.map((s) => speakable(sceneLine(s), n.tone, s.kind));
+    for (let i = 0; i < lines.length; i++) {
+      // contexto (frase anterior e próxima): a voz entende que é uma fala só, sem soar como frases soltas
+      const r = await guard(() => narrationFile(lines[i], n.voiceId, n.tone, { previous: lines.slice(Math.max(0, i - 2), i).join(" ") || undefined, next: lines[i + 1] }));
       if (!r.file) { notes.push(r.note ?? "Narração ignorada."); clips.length = 0; break; }
-      clips.push({ file: r.file, dur: await audioDuration(r.file) });
+      // corta o silêncio do começo/fim de cada fala
+      const trimmed = path.join(dir, `fala_${i}.wav`);
+      await guard(() => run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-i", r.file!, "-af", "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.05,areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.08,areverse", "-ar", "48000", trimmed]));
+      clips.push({ file: trimmed, dur: await audioDuration(trimmed) });
     }
     if (clips.length === edl.motion.scenes.length) {
-      const LEAD = 0.25, TAIL = 0.45;
+      // a cena dura a fala + um respiro curto (encolhe ou estica): ritmo de reels, sem silêncio morto
+      const LEAD = 0.12, TAIL = 0.3;
       let stretched = 0;
-      edl.motion.scenes.forEach((s, i) => { const need = +(clips[i].dur + LEAD + TAIL).toFixed(2); if (need > s.duration) { s.duration = Math.min(8, need); stretched++; } });
+      edl.motion.scenes.forEach((s, i) => {
+        const min = s.kind === "compare" || s.kind === "counter" ? 2.2 : s.kind === "cta" ? 1.8 : 1.3;
+        const fit = Math.min(8, Math.max(min, +(clips[i].dur + LEAD + TAIL).toFixed(2)));
+        if (Math.abs(fit - s.duration) > 0.05) stretched++;
+        s.duration = fit;
+      });
       const starts: number[] = []; let acc = 0;
       for (const s of edl.motion.scenes) { starts.push(acc); acc += s.duration; }
       narration = path.join(dir, "narracao.wav");
@@ -57,7 +69,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
       f.push(`${clips.map((_, i) => `[n${i}]`).join("")}amix=inputs=${clips.length}:normalize=0:duration=longest,apad,atrim=0:${acc.toFixed(3)}[out]`);
       await guard(() => run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", ...clips.flatMap((c) => ["-i", c.file]), "-filter_complex", f.join(";"), "-map", "[out]", "-ar", "48000", narration!]));
       narrationDelay = 0;
-      notes.push(`Narração sincronizada: ${clips.length} falas${stretched ? `, ${stretched} cena(s) esticada(s) para caber a fala` : ""}.`);
+      notes.push(`Narração sincronizada: ${clips.length} falas com contexto; ${stretched} cena(s) ajustada(s) ao tempo da fala.`);
     }
   } else if (edl.audio.narration) {
     await prog(0.02, "Narração", true);
