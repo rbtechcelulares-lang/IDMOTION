@@ -152,3 +152,43 @@ test("motion visual: comparação, contador, check, ícones e comandos de fundo/
   assert.equal(r2.edl.motion!.scenes[2].bg, "black");
   assert.equal(r2.edl.motion!.theme.floaters, null);
 });
+
+test("briefing completo: só textos de tela viram cenas; direção vira fundo/duração/marca", async () => {
+  const fs = await import("node:fs");
+  const { motionPlan } = await import("../shared/director/heuristic");
+  const brief = `PROMPT – CAMPANHA RB TECH | 03/11
+Crie um vídeo publicitário vertical 9:16 para a RB TECH CELULARES.
+CONCEITO: A maior oportunidade para trocar de iPhone está chegando!
+HEADLINE PRINCIPAL:
+IPHONES A PARTIR DE R$ 599!
+DIREÇÃO CRIATIVA:
+* Fundo predominantemente preto.
+* Diversos modelos de iPhone surgindo em movimentos cinematográficos.
+ROTEIRO DO VÍDEO:
+Cena 1 – Impacto inicial:
+Tela escura. Um som forte de impacto. Surge a frase:
+“VOCÊ ESTÁ PREPARADO?”
+Cena 2 – Revelação:
+Vários iPhones aparecem em sequência, com movimentos 3D.
+Texto gigante:
+“IPHONES A PARTIR DE R$ 599!”
+Cena 3 – Suspense:
+Texto:
+“É DIA 03/11 NA RB TECH!”
+Cena 4 – Encerramento:
+Logo RB TECH CELULARES centralizada.
+Texto:
+“FIQUE LIGADO. ESSA OPORTUNIDADE VAI SER INSANA!”
+DURAÇÃO: 15 a 20 segundos.`;
+  void fs;
+  const e = motionPlan({ name: "Campanha", format: "9:16", style: "cinematic", objective: "Venda", hasMusic: false, hasVideo: false, instructions: brief });
+  const s = e.motion!.scenes;
+  assert.equal(s.length, 4);
+  assert.equal(s[0].text, "VOCÊ ESTÁ PREPARADO?");
+  assert.deepEqual([s[1].kind, s[1].text, s[1].sub], ["price", "R$ 599", "IPHONES A PARTIR DE"]);
+  assert.equal(s[2].text, "É DIA 03/11 NA RBTECH!");
+  assert.equal(s[3].sub, "RB TECH CELULARES");
+  assert.equal(e.motion!.theme.bg, "black");
+  assert.ok(Math.abs(edlDuration(e) - 17.5) < 0.3);
+  assert.ok(!s.some((x) => /dire[çc][aã]o|tela escura|roteiro|headline/i.test(x.text)));
+});

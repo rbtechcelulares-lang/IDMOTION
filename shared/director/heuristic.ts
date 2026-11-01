@@ -5,6 +5,7 @@ import { pickCta } from "./knowledge";
 import { chooseTrack, trackVolume } from "./music";
 import { BG_WORDS, EMOJI_RE, TEXTURE_WORDS, iconFor, type Background, type Texture } from "../motion";
 import { fixText, newReport, reportLine } from "./textfix";
+import { parseCreativeBrief, type CreativeBrief } from "./brief";
 import type { Analysis, Brief, Director } from "./types";
 
 const FILLERS = new Set(["é", "e", "então", "hum", "hmm", "ah", "eh", "tipo", "né", "deixa", "eu", "ver", "aqui", "assim", "uh", "ahn"]);
@@ -53,6 +54,8 @@ const CTA_RE = /^(cta\s*[:=]\s*)|\b(acesse|chama|chame|compre|garanta|clique|lin
 
 /** Vídeo 100% motion: cada linha das instruções vira uma cena (título, benefícios, preço, CTA). */
 export function motionPlan(b: Brief): Edl {
+  const brief = parseCreativeBrief(b.instructions || "");
+  if (brief) return briefPlan(b, brief);
   const all = (b.instructions || "").split(/\n|(?<=[.!?])\s+/).map((l) => l.trim().replace(/^[-•\d.)\s]+(?=\S)/, "").replace(/[.;]+$/, ""));
   const directives = all.filter((l) => /^(fundo|textura|emojis?|[ií]cones?)\b/i.test(l));
   const lines = all.filter((l) => l && !directives.includes(l) && !/^(dura[çc][aã]o|narra[çc][aã]o|abertura|t[ií]tulo)\s*[:=]/i.test(l));
@@ -123,6 +126,46 @@ export function musicFor(b: Brief, motion: boolean) {
   if (b.hasMusic) return { volume: motion ? 0.9 : b.style === "viral" ? 0.22 : 0.16, track: null };
   const track = chooseTrack({ style: b.style, objective: b.objective, text: b.instructions, seed: b.name });
   return { volume: trackVolume(track.genre, motion), track };
+}
+
+/** Briefing completo: só os textos de tela viram cenas; o resto é direção (fundo, duração, marca). */
+function briefPlan(b: Brief, br: CreativeBrief): Edl {
+  const rep = newReport();
+  const base = SCENE_SECONDS[b.style];
+  type S = { kind: "title" | "feature" | "price" | "cta"; text: string; sub?: string; duration: number; icon?: string };
+  const scenes: S[] = [];
+  br.scenes.forEach((blk, bi) => {
+    const last = bi === br.scenes.length - 1;
+    for (const raw of blk.texts) {
+      const t = fixText(raw.replace(/[!]+$/, (m) => m.slice(0, 1)), rep);
+      if (!t) continue;
+      const pm = t.match(PRICE_RE);
+      const descIcon = /iphone|aparelho|celular|smartphone/i.test(blk.desc) ? "Smartphone" : undefined;
+      if (pm) {
+        const value = /R\$/.test(pm[0]) ? pm[0].replace(/\s+/, " ") : `R$ ${pm[0]}`;
+        const label = t.replace(pm[0], "").replace(/R\$\s*/i, "").replace(/[!.]+\s*$/, "").replace(/\s{2,}/g, " ").trim();
+        scenes.push({ kind: "price", text: value, sub: label || undefined, duration: base + 0.9, icon: descIcon });
+      } else if (last && CTA_RE.test(t)) scenes.push({ kind: "cta", text: t, duration: base + 1 });
+      else if (bi === 0 && scenes.length === 0) scenes.push({ kind: "title", text: highlight(t), duration: base + 0.3 });
+      else scenes.push({ kind: "feature", text: highlight(t), duration: Math.min(5, base + t.length / 35), icon: descIcon && !last ? descIcon : undefined, sub: last && br.logoAtEnd && br.brand ? br.brand : undefined });
+    }
+  });
+  // "tipografia amarela" no briefing: textos na cor de acento
+  if (/(tipografia|texto|letras?|fonte)[^.\n]{0,25}amarel/i.test(b.instructions)) scenes.forEach((x) => { if (x.kind !== "price" && !x.text.includes("*")) x.text = `*${x.text}*`; });
+  if (br.target) {
+    const total = scenes.reduce((s, x) => s + x.duration, 0);
+    scenes.forEach((x) => (x.duration = Math.max(0.8, Math.min(8, +(x.duration * (br.target! / total)).toFixed(2)))));
+  }
+  const phones = br.scenes.some((s) => /iphone|aparelho|celular/i.test(s.desc)) || /iphone/i.test(b.instructions);
+  const note = `Briefing: ${scenes.length} cenas com os textos de tela; direção aplicada${br.bg ? `: fundo ${br.bg}` : ""}${br.target ? `, ~${br.target}s` : ""}${br.brand ? `, marca ${br.brand}` : ""}.`;
+  return EdlSchema.parse({
+    mode: "motion", format: b.format, preset: b.style, clips: [],
+    motion: { theme: { bg: br.bg ?? (b.style === "premium" ? "glow" : "black"), texture: b.style === "viral" ? "stripes" : "grain", floaters: phones ? { items: ["Smartphone"] } : null }, scenes: scenes.slice(0, 30) },
+    captions: { enabled: false, position: "bottom", size: "md", items: [] },
+    overlays: { intro: null, texts: [], price: null, cta: null },
+    audio: { sourceVolume: 1, music: musicFor(b, true), narration: null, normalize: true },
+    notes: `${note}${reportLine(rep) ? ` Revisão: ${reportLine(rep)}` : ""}`.slice(0, 500),
+  });
 }
 
 /** Destaca (com *…*) números, preços, parcelas e palavras de impacto. Respeita *…* já escrito. */

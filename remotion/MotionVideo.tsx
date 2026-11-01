@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Easing, Sequence, interpolate, random, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Sequence, interpolate, random, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { icons } from "lucide-react";
 import type { Edl } from "../shared/edl";
 import { type Background, type Texture, isEmoji, isLightBg } from "../shared/motion";
@@ -75,12 +75,9 @@ function TextureLayer({ texture, light, u, frame }: { texture: Texture; light: b
   const ink = light ? "rgba(0,0,0," : "rgba(255,255,255,";
   if (texture === "none") return null;
   if (texture === "grain") {
-    const seed = Math.floor(frame / 2) % 8; // grão "vivo"
-    return (
-      <AbsoluteFill style={{ opacity: light ? 0.18 : 0.13, mixBlendMode: light ? "multiply" : "screen" }}>
-        <svg width="100%" height="100%"><filter id={`g${seed}`}><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed={seed} stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter><rect width="100%" height="100%" filter={`url(#g${seed})`} /></svg>
-      </AbsoluteFill>
-    );
+    // ladrilho de ruído pré-gerado (leve) deslocado a cada 2 frames = grão "vivo"
+    const k = Math.floor(frame / 2);
+    return <AbsoluteFill style={{ opacity: light ? 0.1 : 0.07, mixBlendMode: light ? "multiply" : "screen", backgroundImage: `url(${staticFile("textures/grain.png")})`, backgroundSize: `${256 * u}px ${256 * u}px`, backgroundPosition: `${(k * 97) % 256}px ${(k * 61) % 256}px` }} />;
   }
   const s = 46 * u;
   const css: Record<Exclude<Texture, "none" | "grain">, React.CSSProperties> = {

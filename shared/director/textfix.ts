@@ -73,6 +73,7 @@ function fixWord(token: string, rep?: FixReport): string {
   const w = core.replace(/([a-zà-ú])\1{2,}/gi, "$1"); // "muuuito" -> "muito"
   const key = stripAccents(w.toLowerCase());
   let out = FIX[key] ?? (FIX[w.toLowerCase()] ?? w);
+  if (w.length > 1 && w === w.toUpperCase() && /[A-Z]/.test(w) && out.toUpperCase() !== w.toUpperCase()) out = out.toUpperCase(); // "ATE" -> "ATÉ"
   // preserva maiúscula inicial quando a correção é minúscula
   if (out !== w && /^[A-ZÀ-Ú]/.test(w) && /^[a-zà-ú]/.test(out) && !/^[a-z][A-Z]/.test(out)) out = out[0].toUpperCase() + out.slice(1);
   if (w.toUpperCase() === w && w.length > 3 && out.toLowerCase() === w.toLowerCase()) out = w; // CAIXA ALTA proposital
@@ -101,7 +102,8 @@ export function fixText(text: string, rep?: FixReport, opts: { dropFillers?: boo
   let s = words.join(" ");
   for (const [re, to] of FIX2) {
     s = s.replace(re, (...m) => {
-      const out = m[0].replace(new RegExp(re.source, re.flags.replace("g", "")), to);
+      let out = m[0].replace(new RegExp(re.source, re.flags.replace("g", "")), to);
+      if (/[A-Z]{2}/.test(m[0]) && m[0] === m[0].toUpperCase()) out = out.toUpperCase(); // texto em CAIXA ALTA continua em caixa alta
       if (out !== m[0]) rep?.fixed.push(`${m[0]} → ${out}`);
       return out;
     });

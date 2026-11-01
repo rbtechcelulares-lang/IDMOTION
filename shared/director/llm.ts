@@ -35,7 +35,10 @@ const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
  "audio":{"sourceVolume":1,"music":{"volume":0.9,"track":{"genre":"trap"|"pop"|"light","bpm":number,"shift":number,"seed":number}|null},"narration":{"text":string,"volume":1}|null,"normalize":true},"notes":string}
 Texto: use *palavra* para destacar (cor de acento) e ~palavra~ para riscar. compare = dois cards "A vs B" (right é o vencedor); counter = número que conta (text "R$ 1,26", sub "Menos de"); check = ✓ + texto.
 Visual: premium → bg glow + grain + ícones em tile; viral → black + stripes + emojis; cinematic → black + grain. Use bg "paper" para o "jeito antigo/papel". Obedeça pedidos de fundo/textura/emoji do usuário.
-Regras: 1ª cena "title", última "cta". Textos curtos e fortes (até ~8 palavras); em "price" o text é o valor ("R$ 499,90") e sub o contexto ("iPhones a partir de").
+BRIEFING: as instruções podem ser um prompt completo de campanha. Use SOMENTE os textos que devem aparecer na tela (entre aspas, depois de "Texto:"/"Surge a frase", e a HEADLINE),
+respeitando a ordem das cenas do roteiro. Descrições ("Tela escura", "Direção criativa", "Estilo", "iPhones aparecem…") NÃO são cenas: viram decisões visuais (fundo, ícones, ritmo, duração).
+Se o briefing já tem encerramento, não invente CTA nem textos extras.
+Regras: 1ª cena "title", última "cta" (ou o encerramento do briefing). Textos curtos e fortes (até ~8 palavras); em "price" o text é o valor ("R$ 499,90") e sub o contexto ("iPhones a partir de").
 Use só informações das instruções. Duração total típica 12-30s. Trilha: se hasMusic=true use "track":null; senão escolha track (trap energia, pop animado, light premium) com volume 0.9.`;
 
 const STYLE_GUIDE = `${RBTECH_GUIDE}\nEstilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;

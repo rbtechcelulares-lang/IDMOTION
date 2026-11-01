@@ -11,7 +11,7 @@ const hash = (s: string) => { let h = 2166136261; for (const c of s) h = Math.im
 export function chooseTrack(o: { style: Style; objective?: string; text?: string; seed?: string }): Track {
   const t = `${o.objective ?? ""} ${o.text ?? ""}`.toLowerCase();
   let genre: Genre = o.style === "viral" ? "trap" : "light";
-  if (/\btrap\b|\brua\b|pesad|agressiv|black friday|queima|liquida/.test(t)) genre = "trap";
+  if (/\btrap\b|\brua\b|pesad|agressiv|black friday|queima|liquida|eletr[oô]nic|impacto|urg[eê]ncia|insan/.test(t)) genre = "trap";
   else if (/\bpop\b|animad|alegr|festa|divertid|lan[çc]amento|novidade|presente|dia das|natal|acess[óo]rio/.test(t)) genre = o.style === "cinematic" ? "light" : "pop";
   else if (/\blight\b|calm|elegan|premium|sofistic|institucional|tutorial|confian/.test(t)) genre = "light";
   return trackFor(genre, o.seed ?? t);

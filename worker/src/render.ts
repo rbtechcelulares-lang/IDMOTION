@@ -50,7 +50,8 @@ export async function runRender(job: Job, ctx: JobCtx) {
     const cuts: number[] = [];
     let acc = 0;
     for (const d of edl.mode === "motion" ? (edl.motion?.scenes ?? []).map((s) => s.duration) : edl.clips.map(clipDuration)) { acc += d; cuts.push(acc); }
-    const ctaStart = edl.mode === "motion" ? total - (edl.motion?.scenes.at(-1)?.kind === "cta" ? edl.motion.scenes.at(-1)!.duration : 0) : edl.overlays.cta ? total - edl.overlays.cta.duration : null;
+    // impacto no início da última cena (CTA ou encerramento)
+    const ctaStart = edl.mode === "motion" ? total - (edl.motion?.scenes.at(-1)?.duration ?? 0) : edl.overlays.cta ? total - edl.overlays.cta.duration : null;
     music = path.join(dir, "trilha.wav");
     writeWav(music, synthTrack({ ...track, bells: cuts.slice(0, -1).filter((t) => t < total - 0.5), hit: ctaStart && ctaStart < total ? ctaStart : null }, total));
     notes.push(`Trilha gerada: ${track.genre}, ${track.bpm} bpm.`);

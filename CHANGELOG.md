@@ -64,3 +64,7 @@
 - Vídeo 100% motion com tema: fundos (brilho dourado, preto, branco, papel/creme, amarelo, gradiente) por vídeo ou por cena; texturas (granulada, pontilhada, grade, linhas, listras); ícones (Lucide) e emojis flutuando com profundidade; ícone neon/tile de app ou emoji por cena.
 - Novas cenas: comparação "A vs B", contador com anel, check; texto revelado palavra a palavra com *destaque* e ~riscado~; CTA em pílula com seta.
 - Tudo por instruções ("fundo: branco", "📞 linha", "Outro R$ 49 vs Nosso R$ 37,90", "Menos de R$ 1,26", "✓ texto") e chat ("fundo amarelo na cena 2", "textura pontilhada", "emojis 🔥 📱", "emoji 💛 na cena 3", "destaque garantia", "riscar caderno").
+
+## Diretor entende briefing completo
+- Prompt de campanha ("Cena 1", "Texto:", aspas, HEADLINE, DIREÇÃO CRIATIVA, DURAÇÃO) vira só os textos de tela; descrições viram decisões (fundo, duração alvo, ícones, marca no encerramento, tipografia amarela). Não inventa CTA quando o briefing já tem encerramento.
+- Revisor mantém CAIXA ALTA ("RB TECH" → "RBTECH"); Cinematic usa Poppins; textura granulada mais leve (ladrilho de ruído).
