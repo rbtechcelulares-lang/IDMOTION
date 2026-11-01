@@ -37,7 +37,7 @@ function put(url: string, file: File, onProgress: (p: number) => void, mode: str
       if (x.status === 413) msg = "Arquivo grande demais para o armazenamento.";
       reject(new Error(msg));
     };
-    x.onerror = () => reject(new Error(mode === "s3" ? "Falha no upload (rede ou CORS do bucket)" : "Falha de rede no upload"));
+    x.onerror = () => reject(new Error(mode === "s3" ? "Falha no upload. Abra Status (no topo) para ver o motivo." : "Falha de rede no upload"));
     x.send(file);
   });
 }

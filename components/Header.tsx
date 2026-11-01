@@ -7,6 +7,7 @@ export function Header() {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <Link href="/"><Logo size="sm" /></Link>
         <nav className="flex items-center gap-2">
+          <Link href="/status" className="text-xs text-smoke hover:text-volt">Status</Link>
           <Link href="/new" className="btn !px-4 !py-2 text-sm">+ Novo Projeto</Link>
           <form action="/api/auth/logout" method="post"><button className="btn-ghost">Sair</button></form>
         </nav>
