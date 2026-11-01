@@ -20,6 +20,9 @@ export const BG_LIBRARY: Record<(typeof BACKGROUNDS)[number], string> = {
 export const LAYOUTS = ["center", "top", "bottom", "left", "right"] as const;
 export const ANIMS = ["rise", "pop", "slide", "zoom", "type", "blur", "mask"] as const;
 export const VISUALS = ["none", "phones", "phone"] as const;
+/** Transição para ENTRAR na cena (skill RBTech: varreduras lr/rl/tb/bt e corte seco com flash; misture duas). */
+export const TRANSITIONS = ["fade", "wipe-lr", "wipe-rl", "wipe-tb", "wipe-bt", "flash", "zoom"] as const;
+export type Transition = (typeof TRANSITIONS)[number];
 export type Layout = (typeof LAYOUTS)[number];
 export type Anim = (typeof ANIMS)[number];
 export type Visual = (typeof VISUALS)[number];
@@ -27,7 +30,9 @@ export const LIBRARY_DOC = `BIBLIOTECA DE MOTION (escolha o que combina com o ro
 Fundos (theme.bg ou scene.bg): ${Object.entries(BG_LIBRARY).map(([k, v]) => `${k} = ${v}`).join("; ")}.
 Layout do texto (scene.layout): center, top, bottom, left, right — varie para dar ritmo (ex.: gancho no centro, benefício à esquerda, preço embaixo do aparelho).
 Animação do texto (scene.anim): rise (sobe), pop (estoura), slide (desliza), zoom (aproxima), type (máquina de escrever), blur (desfoque→nítido), mask (revela por máscara).
-Visual (scene.visual): phones = vários iPhones desenhados entrando em 3D com reflexo; phone = um iPhone girando; none.`;
+Visual (scene.visual): phones = vários iPhones desenhados entrando em 3D com reflexo; phone = um iPhone girando; none.
+Transição de entrada (scene.transition): fade · wipe-lr/wipe-rl/wipe-tb/wipe-bt (varredura amarela) · flash (corte seco com flash, ótimo no preço) · zoom (entra aproximando, ótimo no CTA). Misture DUAS ao longo do vídeo.
+Efeitos sonoros (audio.sfx {enabled, volume}): gerados automaticamente (whoosh/wipe/slam nas trocas, som do significado da cena, impacto no preço, riser+hit no CTA).`;
 export const TEXTURES = ["none", "grain", "dots", "grid", "lines", "stripes"] as const;
 export type Background = (typeof BACKGROUNDS)[number];
 export type Texture = (typeof TEXTURES)[number];

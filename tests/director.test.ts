@@ -302,3 +302,20 @@ test("narração animada: texto falável (sem caixa alta, valores por extenso, e
   assert.equal(speakable("R$ 1,26 por dia", "calmo", "counter"), "um real e vinte e seis centavos por dia.");
   assert.equal(speakable("Você está preparado?", "animado", "title"), "Você está preparado?");
 });
+
+test("efeitos sonoros e transições: plano ligado às cenas", async () => {
+  const { motionPlan } = await import("../shared/director/heuristic");
+  const { planSfx } = await import("../shared/director/sfx-plan");
+  const edl = motionPlan({ name: "VIP", format: "9:16", style: "viral", objective: "Venda", hasMusic: false, hasVideo: false,
+    instructions: "Você ainda não está no grupo VIP?\niPhones a partir de R$ 499,90\nParcelamos em 12x no cartão\nBrindes exclusivos\nCTA: Chama no WhatsApp" });
+  const sc = edl.motion!.scenes;
+  assert.ok(sc.slice(1).every((s) => s.transition), "toda cena após a 1ª tem transição");
+  assert.equal(sc.find((s) => s.kind === "price")?.transition, "flash");
+  assert.equal(sc.at(-1)?.transition, "zoom");
+  const cues = planSfx(edl).map((c) => c.name);
+  for (const n of ["price", "card", "unlock", "riser", "hit", "send"]) assert.ok(cues.includes(n), `falta ${n}`);
+  assert.ok(cues.includes("slam") && (cues.includes("wipe") || cues.includes("whoosh")));
+  const off = applyCommands(edl, "sem efeitos, transições suave", a)!.edl;
+  assert.equal(planSfx(off).length, 0);
+  assert.ok(off.motion!.scenes.slice(1).every((s) => s.transition === "fade"));
+});

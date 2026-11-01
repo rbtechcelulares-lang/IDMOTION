@@ -31,7 +31,7 @@ const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
   "theme":{"bg": um fundo da biblioteca,"texture":"none"|"grain"|"dots"|"grid"|"lines"|"stripes","floaters":{"items":[ícones Lucide ou emojis]}|null},
   "scenes":[{"kind":"title"|"feature"|"price"|"cta"|"compare"|"counter"|"check","text":string<=90,"sub"?:string<=120,"duration":0.8-8,
     "icon"?: nome de ícone Lucide (Phone, MessageSquareText, NotebookText, Sheet, Cloud, ShieldCheck, Gift, Truck, CreditCard, Wrench, Tag, Zap, Smartphone, Users, MapPin, Sparkles, BadgeCheck, Clock, ShoppingCart) ou um emoji,
-    "bg"?: fundo só desta cena, "layout"?: "center"|"top"|"bottom"|"left"|"right", "anim"?: "rise"|"pop"|"slide"|"zoom"|"type"|"blur"|"mask", "visual"?: "none"|"phones"|"phone",
+    "bg"?: fundo só desta cena, "layout"?: "center"|"top"|"bottom"|"left"|"right", "anim"?: "rise"|"pop"|"slide"|"zoom"|"type"|"blur"|"mask", "visual"?: "none"|"phones"|"phone", "transition"?: "fade"|"wipe-lr"|"wipe-rl"|"wipe-tb"|"wipe-bt"|"flash"|"zoom",
     "compare"?: {"left":{"label","value","sub"?},"right":{"label","value","sub"?}} }]},
 ${LIBRARY_DOC}
  "captions":{"enabled":false,"position":"bottom","size":"md","items":[]},"overlays":{"intro":null,"texts":[],"price":null,"cta":null},

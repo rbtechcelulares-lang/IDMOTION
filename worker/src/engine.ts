@@ -7,7 +7,7 @@ import { run } from "./proc";
 const even = (n: number) => Math.ceil(n / 2) * 2;
 const f3 = (n: number) => n.toFixed(3);
 
-export type BaseInputs = { source: string; hasAudio: boolean; music?: string | null; narration?: string | null };
+export type BaseInputs = { source: string; hasAudio: boolean; music?: string | null; narration?: string | null; sfx?: string | null };
 
 /**
  * Monta o vídeo-base a partir do EDL: cortes (seek por clipe), velocidade, punch-in,
@@ -56,6 +56,12 @@ export function buildBaseArgs(edl: Edl, inp: BaseInputs, out: string, intermedia
     mix.push("[nar]");
     idx++;
   }
+  if (inp.sfx && edl.audio.sfx?.enabled) {
+    args.push("-i", inp.sfx);
+    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${(edl.audio.sfx.volume ?? 0.7).toFixed(3)},atrim=0:${f3(total)}[sfx]`);
+    mix.push("[sfx]");
+    idx++;
+  }
   const mixed = mix.length > 1 ? `${mix.join("")}amix=inputs=${mix.length}:normalize=0:duration=first` : `${mix[0]}anull`;
   const norm = edl.audio.normalize ? ",loudnorm=I=-14:TP=-1.5:LRA=11" : "";
   f.push(`${mixed}${norm},aresample=48000,apad,atrim=0:${f3(total)}[aout]`);
@@ -94,7 +100,7 @@ async function fixLoudness(file: string, target = -14) {
 }
 
 /** Base do vídeo 100% motion: fundo preto (o Remotion pinta tudo por cima) + trilha/narração mixadas. */
-export async function buildMotionBase(edl: Edl, inp: { music?: string | null; narration?: string | null; narrationDelay?: number }, out: string, onProgress: (p: number) => void) {
+export async function buildMotionBase(edl: Edl, inp: { music?: string | null; narration?: string | null; narrationDelay?: number; sfx?: string | null }, out: string, onProgress: (p: number) => void) {
   const { width: W, height: H } = FORMAT_SIZE[edl.format];
   const total = edlDuration(edl);
   const args = ["-y", "-hide_banner", "-loglevel", "error", "-stats", "-stats_period", "0.5", "-f", "lavfi", "-i", `color=c=black:s=${W}x${H}:r=${edl.fps}:d=${f3(total)}`];
@@ -113,6 +119,12 @@ export async function buildMotionBase(edl: Edl, inp: { music?: string | null; na
     const nd = Math.round((inp.narrationDelay ?? 0.4) * 1000);
     f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay=${nd}|${nd},volume=${edl.audio.narration.volume.toFixed(3)},atrim=0:${f3(total)}[nar]`);
     mix.push("[nar]");
+    idx++;
+  }
+  if (inp.sfx && edl.audio.sfx?.enabled) {
+    args.push("-i", inp.sfx);
+    f.push(`[${idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${(edl.audio.sfx.volume ?? 0.7).toFixed(3)},atrim=0:${f3(total)}[sfx]`);
+    mix.push("[sfx]");
     idx++;
   }
   if (!mix.length) { f.push(`anullsrc=r=48000:cl=stereo,atrim=0:${f3(total)}[sil]`); mix.push("[sil]"); }

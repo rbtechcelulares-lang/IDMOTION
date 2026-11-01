@@ -4,6 +4,8 @@ import { EdlSchema } from "../../shared/edl";
 import { Cancelled, db, projectDir } from "./env";
 import { buildBase, buildMotionBase } from "./engine";
 import { synthTrack, writeWav } from "./music";
+import { renderSfx } from "./sfx";
+import { planSfx } from "../../shared/director/sfx-plan";
 import { clipDuration, edlDuration } from "../../shared/edl";
 import { composite, hasOverlay, renderOverlay } from "./overlay";
 import { killAll } from "./proc";
@@ -94,14 +96,22 @@ export async function runRender(job: Job, ctx: JobCtx) {
     writeWav(music, synthTrack({ ...track, bells: cuts.slice(0, -1).filter((t) => t < total - 0.5), hit: ctaStart && ctaStart < total ? ctaStart : null }, total));
     notes.push(`Trilha gerada: ${track.genre}, ${track.bpm} bpm.`);
   }
+  // efeitos sonoros (sintetizados; sem custo): plano de sons ligado às cenas, transições e fala
+  let sfx: string | null = null;
+  const cues = planSfx(edl);
+  if (cues.length) {
+    sfx = path.join(dir, "efeitos.wav");
+    renderSfx(cues, edlDuration(edl), sfx);
+    notes.push(`Efeitos sonoros: ${cues.length} (${[...new Set(cues.map((c) => c.name))].join(", ")}).`);
+  }
   const base = path.join(dir, "base.mp4");
   let duration: number;
   if (edl.mode === "motion") {
-    duration = await guard(() => buildMotionBase(edl, { music, narration, narrationDelay }, base, (x) => prog(0.05 + x * 0.1, "Trilha e mixagem (FFmpeg)")));
+    duration = await guard(() => buildMotionBase(edl, { music, narration, narrationDelay, sfx }, base, (x) => prog(0.05 + x * 0.1, "Trilha e mixagem (FFmpeg)")));
   } else {
     if (!p.source_path) throw Object.assign(new Error("projeto sem vídeo"), { fatal: true });
     const source = await guard(() => ensureLocal(p.source_path));
-    duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)"), hasOverlay(edl)));
+    duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration, sfx }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)"), hasOverlay(edl)));
   }
 
   const final = path.join(dir, "final.mp4");

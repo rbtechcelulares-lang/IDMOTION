@@ -20,6 +20,7 @@ export const COMMAND_HELP = [
   "fundo branco | preto | creme | amarelo | brilho [na cena 2] · textura granulada | pontilhada | grade | linhas | listras | sem textura",
   "emojis 🔥 📱 💛 (flutuando) · emoji 🔥 na cena 2 · ícone telefone na cena 3 · ícones flutuantes · sem ícones",
   "destaque garantia · riscar caderno",
+  "sem efeitos · com efeitos · efeitos mais baixos/altos · transições varredura | flash | zoom | suave · transição flash na cena 3",
   "trilha trap | pop | light · outra trilha · trilha mais rápida · volume da música 30% · sem trilha",
   "narração: texto… / sem narração",
 ];
@@ -200,6 +201,18 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
   if (edl.audio.narration && (m = low.match(/narra(?:[çc][aã]o|dor)\s*(?:mais\s+)?(animad[oa]|empolgad[oa]|energ[eé]tic[oa]|neutr[oa]|calm[oa]|tranquil[oa])/))) {
     const tone = /neutr/.test(m[1]) ? "neutro" : /calm|tranquil/.test(m[1]) ? "calmo" : "animado";
     edl.audio.narration.tone = tone; done.push(`narração ${tone}`);
+  }
+  // efeitos sonoros
+  if (/sem (efeitos?|sfx|sons?)/.test(low)) { edl.audio.sfx = { ...edl.audio.sfx, enabled: false }; done.push("efeitos sonoros desligados"); }
+  else if (/com (efeitos?|sfx|sons?)|liga\w* (os )?efeitos/.test(low)) { edl.audio.sfx = { ...edl.audio.sfx, enabled: true }; done.push("efeitos sonoros ligados"); }
+  if (/efeitos? mais (baixo|baixos|suave)/.test(low)) { edl.audio.sfx = { enabled: true, volume: Math.max(0.1, +(edl.audio.sfx.volume * 0.6).toFixed(2)) }; done.push("efeitos mais baixos"); }
+  if (/efeitos? mais (alto|altos|forte)/.test(low)) { edl.audio.sfx = { enabled: true, volume: Math.min(1.5, +(edl.audio.sfx.volume * 1.4).toFixed(2)) }; done.push("efeitos mais altos"); }
+  // transições
+  if (edl.motion && (m = low.match(/transi[çc](?:[aã]o|[õo]es)\s*(?:de\s+|com\s+)?(varredura|wipe|flash|corte|zoom|suave|fade)(?:.*?cena\s*(\d+))?/))) {
+    const tr = /varredura|wipe/.test(m[1]) ? "wipe-lr" : /flash|corte/.test(m[1]) ? "flash" : /zoom/.test(m[1]) ? "zoom" : "fade";
+    const sc = edl.motion.scenes;
+    if (m[2] && sc[Number(m[2]) - 1]) { sc[Number(m[2]) - 1].transition = tr; done.push(`transição ${tr} na cena ${m[2]}`); }
+    else { sc.forEach((x, i) => { if (i > 0) x.transition = tr === "wipe-lr" ? (["wipe-lr", "wipe-rl", "wipe-tb", "wipe-bt"] as const)[i % 4] : tr; }); done.push(`transições ${tr}`); }
   }
   if (/sem narra[çc][aã]o/.test(low)) { edl.audio.narration = null; done.push("narração removida"); }
   else if (/narra[çc][aã]o\s*[:=]?\s*(auto|das cenas|sincronizada)/i.test(text)) { edl.audio.narration = { text: buildNarration(edl), volume: 1, voiceId: edl.audio.narration?.voiceId, custom: false, tone: edl.audio.narration?.tone ?? "animado" }; done.push("narração sincronizada com as cenas"); }

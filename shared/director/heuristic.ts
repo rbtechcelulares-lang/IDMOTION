@@ -3,7 +3,7 @@ import { finalizeEdl } from "./finalize";
 import { applyCommands } from "./commands";
 import { pickCta } from "./knowledge";
 import { chooseTrack, trackVolume } from "./music";
-import { BG_WORDS, EMOJI_RE, TEXTURE_WORDS, iconFor, type Anim, type Background, type Layout, type Texture } from "../motion";
+import { BG_WORDS, EMOJI_RE, TEXTURE_WORDS, iconFor, type Anim, type Background, type Layout, type Texture, type Transition } from "../motion";
 import { fixText, newReport, reportLine } from "./textfix";
 import { parseCreativeBrief, type CreativeBrief } from "./brief";
 import type { Analysis, Brief, Director } from "./types";
@@ -173,7 +173,7 @@ function briefPlan(b: Brief, br: CreativeBrief): Edl {
 
 const seedOf = (s: string) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
 /** Biblioteca de motion aplicada pelo diretor por regras: fundo, posição, animação e iPhones variando por cena. */
-export function decorateScenes(scenes: { kind: string; text: string; sub?: string; bg?: Background; layout?: Layout; anim?: Anim; visual?: "none" | "phones" | "phone" }[], b: Brief, context = "") {
+export function decorateScenes(scenes: { kind: string; text: string; sub?: string; bg?: Background; layout?: Layout; anim?: Anim; visual?: "none" | "phones" | "phone"; transition?: Transition }[], b: Brief, context = "") {
   const seed = seedOf(b.name + b.instructions);
   const anims: Record<string, Anim[]> = { viral: ["pop", "zoom", "slide", "mask"], premium: ["blur", "mask", "rise", "slide"], cinematic: ["rise", "blur", "mask", "type"] };
   const layouts: Layout[] = ["center", "left", "bottom", "center", "right", "top"];
@@ -192,6 +192,16 @@ export function decorateScenes(scenes: { kind: string; text: string; sub?: strin
         : undefined; // usa o fundo do tema
     }
     if (!s.anim) s.anim = anims[b.style][(i + seed) % 4];
+    // transições: misture duas (skill RBTech); preço entra com flash/corte seco, CTA com zoom
+    if (!s.transition && i > 0) {
+      const pairs: Record<string, [Transition, Transition][]> = {
+        viral: [["wipe-lr", "flash"], ["wipe-rl", "wipe-bt"], ["wipe-tb", "flash"]],
+        premium: [["wipe-lr", "fade"], ["wipe-bt", "zoom"], ["fade", "wipe-rl"]],
+        cinematic: [["fade", "zoom"], ["zoom", "fade"], ["fade", "wipe-tb"]],
+      };
+      const pair = pairs[b.style][seed % 3];
+      s.transition = s.kind === "price" && b.style !== "cinematic" ? "flash" : s.kind === "cta" ? "zoom" : pair[i % 2];
+    }
     const iphone = /iphone|aparelho|celular|smartphone|modelos?/.test(t) || (s.kind === "price" && /iphone|aparelho|celular/.test(ctx));
     if (!s.visual && iphone && !phonesUsed && (s.kind === "price" || s.kind === "feature" || s.kind === "title")) { s.visual = s.kind === "price" || /v[aá]rios|modelos|diversos/.test(ctx) ? "phones" : "phone"; phonesUsed = true; }
     if (!s.layout && !["compare", "counter", "cta", "check"].includes(s.kind)) s.layout = s.visual && s.visual !== "none" ? "bottom" : layouts[(i + seed) % layouts.length];

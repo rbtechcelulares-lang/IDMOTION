@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FORMATS, STYLES } from "./constants";
-import { ANIMS, BACKGROUNDS, LAYOUTS, TEXTURES, VISUALS } from "./motion";
+import { ANIMS, BACKGROUNDS, LAYOUTS, TEXTURES, TRANSITIONS, VISUALS } from "./motion";
 
 /** EDL (Edit Decision List) do ID MOTION. Tempos em segundos. */
 export const ClipSchema = z.object({
@@ -29,6 +29,7 @@ export const MotionSceneSchema = z.object({
   layout: z.enum(LAYOUTS).optional(), // posição do texto
   anim: z.enum(ANIMS).optional(), // animação de entrada do texto
   visual: z.enum(VISUALS).optional(), // iPhones desenhados animados
+  transition: z.enum(TRANSITIONS).optional(), // como esta cena ENTRA
 });
 export const MotionThemeSchema = z.object({
   bg: z.enum(BACKGROUNDS).default("glow"),
@@ -67,6 +68,8 @@ export const EdlSchema = z.object({
     // custom=false (padrão): no motion, fala cena por cena o texto da tela, sincronizado; custom=true: texto livre em faixa única
     narration: z.object({ text: z.string().min(1).max(2500), voiceId: z.string().max(64).optional(), volume: z.number().min(0).max(2).default(1), custom: z.boolean().default(false), tone: z.enum(["animado", "neutro", "calmo"]).default("animado") }).nullable().default(null),
     normalize: z.boolean().default(true),
+    // efeitos sonoros sintetizados (whoosh nas trocas, impacto no preço, sons ligados à fala)
+    sfx: z.object({ enabled: z.boolean().default(true), volume: z.number().min(0).max(1.5).default(0.7) }).default({ enabled: true, volume: 0.7 }),
   }),
   notes: z.string().max(500).default(""),
 }).refine((e) => (e.mode === "motion" ? !!e.motion?.scenes.length : e.clips.length > 0), { message: "EDL precisa de clips (vídeo) ou cenas (motion)" });

@@ -48,9 +48,42 @@ export const MotionVideo: React.FC<{ edl: Edl }> = ({ edl }) => {
         from += dur;
         return el;
       })}
+      {/* transições entre cenas (por cima de tudo): varredura amarela, flash de corte seco */}
+      {spans.map((sp, i) => {
+        const tr = scenes[i]?.transition;
+        if (i === 0 || !tr || tr === "fade" || tr === "zoom") return null;
+        const H = tr === "flash" ? 4 : 8;
+        return (
+          <Sequence key={`tr${i}`} from={Math.max(0, sp.from - H)} durationInFrames={H * 2 + 2}>
+            <TransitionFx kind={tr} half={H} light={isLightBg(sp.bg)} />
+          </Sequence>
+        );
+      })}
     </AbsoluteFill>
   );
 };
+
+/** Varredura (painel amarelo com faixa preta) ou flash; cobre a tela inteira exatamente no corte. */
+function TransitionFx({ kind, half, light }: { kind: string; half: number; light: boolean }) {
+  const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  if (kind === "flash") {
+    const o = frame <= half ? interpolate(frame, [0, half], [0, 1], clamp) : interpolate(frame, [half, half + 5], [1, 0], clamp);
+    return <AbsoluteFill style={{ background: "#fff", opacity: o * 0.9 }} />;
+  }
+  const p = interpolate(frame, [0, half * 2], [-1.15, 1.15], { ...clamp, easing: Easing.inOut(Easing.cubic) });
+  const horiz = kind === "wipe-lr" || kind === "wipe-rl";
+  const sign = kind === "wipe-rl" || kind === "wipe-bt" ? -1 : 1;
+  const d = (horiz ? width : height) * p * sign;
+  const band = Math.min(width, height) * 0.06;
+  const main = light ? INK : YELLOW, edge = light ? YELLOW : INK;
+  return (
+    <AbsoluteFill style={{ overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, transform: horiz ? `translateX(${d}px)` : `translateY(${d}px)`, background: main,
+        boxShadow: horiz ? `${-sign * band}px 0 0 ${edge}, ${sign * band}px 0 0 ${edge}` : `0 ${-sign * band}px 0 ${edge}, 0 ${sign * band}px 0 ${edge}` }} />
+    </AbsoluteFill>
+  );
+}
 
 function BackgroundLayer({ bg, texture, preset }: { bg: Background; texture: Texture; preset: Edl["preset"] }) {
   const frame = useCurrentFrame();
@@ -362,6 +395,12 @@ function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Sce
     alignItems: align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center",
     padding: `${layout === "top" ? height * 0.14 : 0}px ${80 * u}px ${layout === "bottom" ? height * 0.13 : 0}px`, opacity: out, color: pal.fg, gap: 28 * u,
   };
+  // transição "zoom": a cena entra aproximando com desfoque
+  if (scene.transition === "zoom") {
+    const z = interpolate(frame, [0, 10], [1.35, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+    wrap.transform = `scale(${z})`;
+    wrap.filter = `blur(${interpolate(frame, [0, 8], [8, 0], clamp)}px)`;
+  }
   const visualEl = scene.visual && scene.visual !== "none" ? <PhonesVisual kind={scene.visual} area={layout === "top" ? "lower" : layout === "bottom" ? "upper" : "middle"} /> : null;
   const subText = (scene.sub ?? "").replace(/[*~]/g, ""); // marcações de destaque não aparecem no subtítulo
   const subStyle: React.CSSProperties = { fontSize: 48 * u, fontWeight: 600, color: pal.light ? "#333" : "#d9d9d9", opacity: fadeIn, textAlign: align, maxWidth: "100%" };

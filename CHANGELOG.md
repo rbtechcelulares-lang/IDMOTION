@@ -99,3 +99,7 @@
 
 ## Correção: linha vertical no fundo listrado
 - Textura de listras agora desliza como camada inteira (sem emenda do padrão), eliminando a linha vertical que aparecia no fundo.
+
+## Efeitos sonoros e transições (skill RBTech)
+- 18 efeitos sintetizados portados da skill (whoosh, wipe, slam, price, approve, card, beep, unlock, typing, send, location, device, riser, hit, tick, boom, pop, shimmer), ligados ao significado da cena e às trocas; sem custo por vídeo. Também nos vídeos com fala (whoosh nos cortes, impacto no preço, riser+hit no CTA).
+- Transições: varredura amarela (lr/rl/tb/bt), corte seco com flash e zoom de entrada; o diretor mistura duas por vídeo (preço com flash, CTA com zoom). Chat: "sem efeitos", "efeitos mais baixos", "transições varredura|flash|zoom|suave", "transição flash na cena 3".
