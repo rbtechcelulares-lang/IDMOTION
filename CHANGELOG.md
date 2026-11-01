@@ -39,3 +39,6 @@
 
 ## Cloudflare R2
 - `STORAGE=s3` (R2/S3-compatível via `aws4fetch`): upload direto do iPhone por URL pré-assinada, download/frames por link assinado, worker baixa/sobe e a limpeza de 2 dias apaga do bucket. Sem o limite de 50 MB do Supabase grátis.
+
+## Motor no GitHub Actions (grátis)
+- Worker com `WORKER_ONCE=1` (processa a fila e encerra); workflow `.github/workflows/worker.yml` acionado pelo app via `repository_dispatch` (`GITHUB_DISPATCH_TOKEN`) e a cada 6 h (fila + limpeza); pula em silêncio sem secrets.

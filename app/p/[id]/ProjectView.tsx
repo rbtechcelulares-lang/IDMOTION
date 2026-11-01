@@ -171,7 +171,7 @@ function Progress({ job, onCancel }: { job: Job; onCancel: () => void }) {
   const pct = Math.round(job.progress * 100);
   return (
     <div className="space-y-2">
-      <div className="flex justify-between text-sm"><span>{job.status === "queued" ? (job.attempts ? job.stage : "Na fila (worker)…") : job.stage || "Iniciando…"}</span><span className="text-volt">{pct}%</span></div>
+      <div className="flex justify-between text-sm"><span>{job.status === "queued" ? (job.attempts ? job.stage : "Ligando o motor de render… (até ~1 min)") : job.stage || "Iniciando…"}</span><span className="text-volt">{pct}%</span></div>
       <div className="h-2 overflow-hidden rounded-full bg-line"><div className="h-full bg-volt transition-all duration-700" style={{ width: `${pct}%` }} /></div>
       <div className="flex items-center justify-between text-xs text-smoke">
         <span>Tentativa {Math.max(1, job.attempts)}/{job.max_attempts}</span>

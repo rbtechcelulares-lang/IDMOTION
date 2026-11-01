@@ -10,6 +10,9 @@ import { cleanupOldFiles } from "./cleanup";
 
 const WORKER_ID = `${os.hostname()}-${process.pid}`;
 const POLL_MS = Number(process.env.WORKER_POLL_MS || 2000);
+// WORKER_ONCE=1 (GitHub Actions): processa a fila e encerra quando ela esvaziar.
+const ONCE = process.env.WORKER_ONCE === "1";
+const ONCE_IDLE_MS = Number(process.env.WORKER_ONCE_IDLE_MS || 20000);
 let stopping = false;
 
 async function finish(job: Job, patch: Record<string, unknown>, projectPatch?: Record<string, unknown>) {
@@ -53,6 +56,7 @@ async function loop() {
   // jobs "running" órfãos (worker caiu) voltam para a fila
   await db.from("jobs").update({ status: "queued" }).eq("status", "running");
   let lastCleanup = 0;
+  let idleSince = Date.now();
   while (!stopping) {
     if (Date.now() - lastCleanup > 3600_000) {
       lastCleanup = Date.now();
@@ -61,10 +65,18 @@ async function loop() {
     const { data, error } = await db.rpc("claim_job", { p_worker: WORKER_ID });
     if (error) console.error("[worker] claim:", error.message);
     const job = (data as Job[] | null)?.[0];
-    if (job) await handle(job);
-    else await new Promise((r) => setTimeout(r, POLL_MS));
+    if (job) {
+      await handle(job);
+      idleSince = Date.now();
+    } else {
+      if (ONCE && Date.now() - idleSince > ONCE_IDLE_MS) {
+        console.log("[worker] fila vazia, encerrando (modo once)");
+        return;
+      }
+      await new Promise((r) => setTimeout(r, POLL_MS));
+    }
   }
 }
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => { stopping = true; killAll(); setTimeout(() => process.exit(0), 500); });
-loop().catch((e) => { console.error(e); process.exit(1); });
+loop().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

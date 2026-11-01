@@ -1,0 +1,66 @@
+# Motor de render do ID MOTION no GitHub Actions (grátis: 2.000 min/mês em repositório privado).
+# Acordado pelo app (repository_dispatch) a cada análise/exportação; a cada 6h roda a checagem e a limpeza.
+name: worker
+
+on:
+  repository_dispatch:
+    types: [idmotion-worker]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+concurrency:
+  group: idmotion-worker
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.c.outputs.ok }}
+    steps:
+      - id: c
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          if [ -n "$URL" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; echo "::notice::Configure os secrets (DEPLOY_IPHONE.md) para ligar o motor."; fi
+
+  render:
+    needs: check
+    if: needs.check.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      WORKER_ONCE: "1"
+      DATA_DIR: ${{ github.workspace }}/.data
+      STORAGE: ${{ vars.STORAGE || 's3' }}
+      S3_BUCKET: ${{ vars.S3_BUCKET || 'idmotion' }}
+      S3_REGION: ${{ vars.S3_REGION || 'auto' }}
+      RETENTION_DAYS: ${{ vars.RETENTION_DAYS || '2' }}
+      MAX_DURATION_S: ${{ vars.MAX_DURATION_S || '600' }}
+      AI_MODEL: ${{ vars.AI_MODEL || 'claude-opus-5-5' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: FFmpeg e fontes
+        run: |
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq; sudo apt-get install -y -qq ffmpeg; fi
+          sudo apt-get install -y -qq fonts-dejavu-core fonts-liberation || true
+          ffmpeg -version | head -1
+      - name: Dependências
+        run: npm ci --no-audit --no-fund
+      - name: Navegador do Remotion
+        run: npx remotion browser ensure
+      - name: Processar fila
+        run: npx tsx worker/src/index.ts

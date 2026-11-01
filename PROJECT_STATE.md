@@ -8,5 +8,5 @@
 - Director: `shared/director` (Claude via SDK ou heurístico); EDL zod em `shared/edl.ts`; chat cria versões com pai → desfazer.
 - Render: FFmpeg monta base (cortes/formato/mix/loudnorm + correção de ganho) → Remotion (ProRes 4444 alpha) → composição → QC.
 - Presets em `remotion/` (Overlay.tsx, presets.ts).
-- Storage: `STORAGE=local` (disco), `s3` (Cloudflare R2, recomendado na nuvem) ou `supabase`. Guia: DEPLOY_IPHONE.md. Retenção 2 dias.
+- Storage: `STORAGE=local` (disco), `s3` (Cloudflare R2, recomendado) ou `supabase`. Motor na nuvem: GitHub Actions (`worker.yml`, `WORKER_ONCE`). Guia: DEPLOY_IPHONE.md.
 - Pendências: imagem Docker não construída aqui (rede); chaves reais de IA/ElevenLabs e deploy real ainda não testados.
