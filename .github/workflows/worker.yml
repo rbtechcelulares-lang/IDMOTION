@@ -65,7 +65,7 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Dependências
         if: steps.nm.outputs.cache-hit != 'true'
-        run: npm ci --no-audit --no-fund && npx remotion browser ensure
+        run: npm ci --no-audit --no-fund && npx tsx worker/src/ensure-browser.ts
       - name: Cache do bundle do Remotion
         id: rb
         uses: actions/cache@v4

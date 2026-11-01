@@ -9,7 +9,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 # Baixa o Chrome headless do Remotion na build (se falhar, baixa no primeiro render).
-RUN npx remotion browser ensure || echo "aviso: navegador do Remotion será baixado no primeiro render"
+COPY worker/src/ensure-browser.ts ./worker/src/ensure-browser.ts
+RUN npx tsx worker/src/ensure-browser.ts || echo "aviso: navegador do Remotion será baixado no primeiro render"
 COPY tsconfig.json ./
 COPY shared ./shared
 COPY remotion ./remotion
