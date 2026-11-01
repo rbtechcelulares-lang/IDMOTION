@@ -4,4 +4,4 @@ import { bundle } from "@remotion/bundler";
 
 const outDir = process.env.REMOTION_BUNDLE;
 if (!outDir) throw new Error("defina REMOTION_BUNDLE");
-bundle({ entryPoint: path.resolve(__dirname, "../../remotion/index.ts"), outDir }).then((d) => console.log("bundle pronto em", d));
+bundle({ entryPoint: path.resolve(__dirname, "../../remotion/index.ts"), publicDir: path.resolve(__dirname, "../../remotion/public"), outDir }).then((d) => console.log("bundle pronto em", d));

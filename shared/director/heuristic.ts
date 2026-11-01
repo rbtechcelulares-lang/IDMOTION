@@ -1,6 +1,8 @@
 import { type Edl, EdlSchema, edlDuration } from "../edl";
 import { finalizeEdl } from "./finalize";
 import { applyCommands } from "./commands";
+import { pickCta } from "./knowledge";
+import { fixText, newReport, reportLine } from "./textfix";
 import type { Analysis, Brief, Director } from "./types";
 
 const FILLERS = new Set(["é", "e", "então", "hum", "hmm", "ah", "eh", "tipo", "né", "deixa", "eu", "ver", "aqui", "assim", "uh", "ahn"]);
@@ -55,11 +57,14 @@ export function motionPlan(b: Brief): Edl {
     .filter((l) => l && !/^(dura[çc][aã]o|narra[çc][aã]o|abertura|t[ií]tulo)\s*[:=]/i.test(l));
   const p = parseBrief(b.instructions);
   const base = SCENE_SECONDS[b.style];
+  const rep = newReport();
   const cap = (t: string, n = 90) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "…" : t);
   const scenes: { kind: "title" | "feature" | "price" | "cta"; text: string; sub?: string; duration: number }[] = [];
-  scenes.push({ kind: "title", text: cap(p.intro || b.name, 60), sub: b.objective || undefined, duration: base + 0.4 });
+  scenes.push({ kind: "title", text: cap(fixText(p.intro || b.name, rep) || b.name, 60), sub: b.objective || undefined, duration: base + 0.4 });
   let cta: string | null = p.cta;
-  for (const l of lines) {
+  for (const raw of lines) {
+    const l = fixText(raw, rep); // revisor: corrige grafia e descarta o que não faz sentido
+    if (!l) continue;
     if (CTA_RE.test(l) && !PRICE_RE.test(l)) { cta = l.replace(/^cta\s*[:=]\s*/i, ""); continue; }
     const m = l.match(PRICE_RE);
     if (m) {
@@ -69,7 +74,7 @@ export function motionPlan(b: Brief): Edl {
     } else scenes.push({ kind: "feature", text: cap(l), duration: Math.min(5, base + l.length / 40) });
   }
   if (scenes.length === 1) scenes.push({ kind: "feature", text: cap(b.objective || b.name), duration: base });
-  scenes.push({ kind: "cta", text: cap(cta || (/venda|lan[çc]amento/i.test(b.objective) ? "Chama no direct" : "Saiba mais"), 60), duration: base + 1 });
+  scenes.push({ kind: "cta", text: cap(fixText(cta || "", rep) || (/venda|lan[çc]amento/i.test(b.objective) ? pickCta(b.name) : "Saiba mais"), 60), duration: base + 1 });
   if (p.target) {
     const total = scenes.reduce((s, x) => s + x.duration, 0);
     const k = p.target / total;
@@ -80,7 +85,7 @@ export function motionPlan(b: Brief): Edl {
     captions: { enabled: false, position: "bottom", size: "md", items: [] },
     overlays: { intro: null, texts: [], price: null, cta: null },
     audio: { sourceVolume: 1, music: b.hasMusic ? { volume: 0.9 } : null, narration: p.narration ? { text: p.narration, volume: 1 } : null, normalize: true },
-    notes: "Vídeo 100% motion (sem vídeo-fonte).",
+    notes: `Vídeo 100% motion (sem vídeo-fonte).${reportLine(rep) ? ` Revisão: ${reportLine(rep)}` : ""}`.slice(0, 500),
   });
 }
 
@@ -111,7 +116,7 @@ export function heuristicPlan(a: Analysis, b: Brief): Edl {
       intro: { text: (p.intro || b.name).slice(0, 60), sub: b.objective ? b.objective.slice(0, 80) : undefined, duration: b.style === "viral" ? 1.6 : 2.4 },
       texts: [],
       price: p.price ? { start: +(dur * 0.55).toFixed(2), end: +(dur - ctaDur).toFixed(2), value: p.price, label: "por apenas" } : null,
-      cta: { text: (p.cta || (isSale ? "Chama no direct" : "Saiba mais")).slice(0, 60), duration: ctaDur },
+      cta: { text: (p.cta || (isSale ? pickCta(b.name) : "Saiba mais")).slice(0, 60), duration: ctaDur },
     },
     audio: {
       sourceVolume: 1,

@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { FORMAT_SIZE } from "../shared/constants";
 import { type Edl, edlDuration } from "../shared/edl";
 import { Overlay } from "./Overlay";
+import "./fonts";
 
 export type OverlayProps = { edl: Edl };
 

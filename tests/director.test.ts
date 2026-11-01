@@ -82,7 +82,7 @@ test("vídeo 100% motion: cada linha vira cena, preço e CTA detectados", async 
   assert.equal(edl.mode, "motion");
   assert.equal(s[0].kind, "title");
   assert.equal(s.find((x) => x.kind === "price")?.text, "R$ 499,90");
-  assert.equal(s.find((x) => x.kind === "price")?.sub, "Iphones a partir de");
+  assert.equal(s.find((x) => x.kind === "price")?.sub, "iPhones a partir de");
   assert.equal(s[s.length - 1].kind, "cta");
   assert.equal(s[s.length - 1].text, "Acesse agora o grupo");
   assert.equal(s.filter((x) => x.kind === "feature").length, 3);
@@ -91,4 +91,21 @@ test("vídeo 100% motion: cada linha vira cena, preço e CTA detectados", async 
   assert.equal(r.edl.motion!.scenes.length, s.length - 1);
   assert.ok(Math.abs(edlDuration(r.edl) - 12) < 0.3);
   assert.equal(r.edl.motion!.scenes.at(-1)!.text, "Entre no grupo VIP");
+});
+
+test("revisor de texto: corrige, padroniza marcas e descarta o sem sentido", async () => {
+  const { fixText, fixCaption, newReport, reportLine } = await import("../shared/director/textfix");
+  const rep = newReport();
+  assert.equal(fixText("Ate 1 ano de garantia nos semi-novos", rep), "Até 1 ano de garantia nos seminovos");
+  assert.equal(fixText("E sorteio de perfums premiun no grupo vip", rep), "E sorteio de perfumes premium no grupo VIP");
+  assert.equal(fixText("iphone 16 pro max na rbtec", rep), "iPhone 16 Pro Max na RBTech");
+  assert.equal(fixText("parcela em 12 x no cartao", rep), "Parcela em 12x no cartão");
+  assert.equal(fixText("chama no whats q vc garante", rep), "Chama no WhatsApp que você garante");
+  assert.equal(fixText("asdfgh kkkkk", rep), "");
+  assert.equal(fixText("Brindes exclusivos xzq", rep), "Brindes exclusivos");
+  assert.equal(fixText("R$499,90 a vista", rep), "R$ 499,90 a vista");
+  assert.equal(fixCaption("é hum"), "");
+  assert.equal(fixCaption("o o iPhone"), "o iPhone");
+  assert.match(reportLine(rep), /Corrigi: .*perfums → perfumes/);
+  assert.match(reportLine(rep), /Descartei: .*asdfgh kkkkk/);
 });

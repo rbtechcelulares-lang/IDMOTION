@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Edl } from "../shared/edl";
-import { LOOK, YELLOW } from "./presets";
+import { INK, LOOK, YELLOW } from "./presets";
 
 type Scene = NonNullable<Edl["motion"]>["scenes"][number];
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -35,7 +35,7 @@ function Background({ edl }: { edl: Edl }) {
   if (edl.preset === "viral") {
     const shift = (frame * 6) % (160 * u);
     return (
-      <AbsoluteFill style={{ background: "#000" }}>
+      <AbsoluteFill style={{ background: INK }}>
         <AbsoluteFill style={{ opacity: 0.09, backgroundImage: `repeating-linear-gradient(-45deg, ${YELLOW} 0 ${40 * u}px, transparent ${40 * u}px ${160 * u}px)`, backgroundPosition: `${shift}px 0` }} />
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 14 * u, background: YELLOW }} />
       </AbsoluteFill>
@@ -53,7 +53,7 @@ function Background({ edl }: { edl: Edl }) {
   }
   const x = 50 + 20 * Math.sin(frame / 60);
   return (
-    <AbsoluteFill style={{ background: `radial-gradient(circle at ${x}% 30%, rgba(255,230,0,.16) 0%, transparent 45%), linear-gradient(160deg, #141414 0%, #050505 100%)` }}>
+    <AbsoluteFill style={{ background: `radial-gradient(circle at ${x}% 30%, rgba(255,214,10,.16) 0%, transparent 45%), linear-gradient(160deg, #1a1a1a 0%, ${INK} 100%)` }}>
       <div style={{ position: "absolute", left: 70 * u, top: 120 * u, width: 90 * u, height: 8 * u, background: YELLOW }} />
     </AbsoluteFill>
   );

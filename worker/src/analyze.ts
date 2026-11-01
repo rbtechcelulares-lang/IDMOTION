@@ -57,7 +57,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   const { data: last } = await db.from("edl_versions").select("version").eq("project_id", p.id).order("version", { ascending: false }).limit(1);
   const version = (last?.[0]?.version ?? 0) + 1;
   await db.from("edl_versions").insert({ project_id: p.id, version, parent_version: null, edl, source: "director", note: `Plano inicial (${director.name})` });
-  await db.from("chat_messages").insert({ project_id: p.id, role: "assistant", content: `Plano criado por ${director.name}: ${edl.clips.length} cortes, ${edl.overlays.price ? "com preço, " : ""}${edl.captions.items.length} legendas. Peça alterações aqui ou exporte.`, edl_version: version });
+  await db.from("chat_messages").insert({ project_id: p.id, role: "assistant", content: `Plano criado por ${director.name}: ${edl.clips.length} cortes, ${edl.overlays.price ? "com preço, " : ""}${edl.captions.items.length} legendas. Peça alterações aqui ou exporte.${/Revisão: /.test(edl.notes) ? `\n${edl.notes.slice(edl.notes.indexOf("Revisão: "))}` : ""}`, edl_version: version });
   await db.from("projects").update({ status: "ready", current_version: version, error: null, updated_at: new Date().toISOString() }).eq("id", p.id);
   return { version };
 }
@@ -74,7 +74,7 @@ async function planMotion(p: Record<string, any>, ctx: JobCtx) { // eslint-disab
   const { data: last } = await db.from("edl_versions").select("version").eq("project_id", p.id).order("version", { ascending: false }).limit(1);
   const version = (last?.[0]?.version ?? 0) + 1;
   await db.from("edl_versions").insert({ project_id: p.id, version, parent_version: null, edl, source: "director", note: `Plano motion (${director.name})` });
-  await db.from("chat_messages").insert({ project_id: p.id, role: "assistant", content: `Vídeo 100% motion criado por ${director.name}: ${edl.motion?.scenes.length} cenas. Peça alterações (ex.: "remover cena 2", "preço R$ 399,90", "mais rápido") ou exporte.`, edl_version: version });
+  await db.from("chat_messages").insert({ project_id: p.id, role: "assistant", content: `Vídeo 100% motion criado por ${director.name}: ${edl.motion?.scenes.length} cenas. Peça alterações (ex.: "remover cena 2", "preço R$ 399,90", "mais rápido") ou exporte.${/Revisão: /.test(edl.notes) ? `\n${edl.notes.slice(edl.notes.indexOf("Revisão: "))}` : ""}`, edl_version: version });
   await db.from("projects").update({ status: "ready", current_version: version, error: null, updated_at: new Date().toISOString() }).eq("id", p.id);
   return { version };
 }

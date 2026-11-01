@@ -51,3 +51,8 @@
 
 ## Vídeo 100% Motion
 - Projeto sem vídeo vira vídeo 100% motion: cada linha das instruções vira uma cena (abertura, benefícios, preço, CTA), com trilha/narração. EDL `mode: "motion"` + `motion.scenes`; diretor por regras e Claude; chat (remover cena N, duração, preço, CTA, abertura, texto/cena, ritmo); render com fundo animado por preset (Viral, Premium, Cinematic).
+
+## Conhecimento RBTech + revisor de texto
+- Diretor com o guia RBTech (marca, estrutura gancho→produto→motivo→prova→chamada, só afirmar o que o cliente disse, variar a chamada) no prompt do Claude.
+- Revisor automático (sem IA): corrige grafia/acentos/marcas (iPhone, RBTech, seminovos, WhatsApp, 12x, R$), descarta letras e frases sem sentido e muletas; relatório "Revisão: Corrigi… Descartei…" no chat. Com Claude, revisão extra das legendas.
+- Vídeos na identidade RBTech: Poppins (embutida, OFL) + amarelo #FFD60A + preto #0F0F0F.

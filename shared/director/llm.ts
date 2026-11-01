@@ -4,6 +4,7 @@ import { type Edl, EdlSchema } from "../edl";
 import { finalizeEdl } from "./finalize";
 import { HeuristicDirector } from "./heuristic";
 import type { Analysis, Brief, Director } from "./types";
+import { RBTECH_GUIDE } from "./knowledge";
 
 const SCHEMA_DOC = `EDL JSON (tempos em segundos; clips usam o tempo do vídeo-fonte; overlays usam o tempo da timeline final):
 {
@@ -29,7 +30,7 @@ const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
 Regras: 1ª cena "title", última "cta". Textos curtos e fortes (até ~8 palavras); em "price" o text é o valor ("R$ 499,90") e sub o contexto ("iPhones a partir de").
 Use só informações das instruções. Duração total típica 12-30s. music só se hasMusic=true.`;
 
-const STYLE_GUIDE = `Estilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;
+const STYLE_GUIDE = `${RBTECH_GUIDE}\nEstilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;
 
 function summarize(a: Analysis) {
   const segs = a.speech.slice(0, 200).map((s) => {
@@ -46,7 +47,9 @@ function summarize(a: Analysis) {
 
 function extractJson(text: string): unknown {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const body = fenced ? fenced[1] : text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+  const t = text.trim();
+  const arr = !fenced && t.indexOf("[") !== -1 && (t.indexOf("{") === -1 || t.indexOf("[") < t.indexOf("{"));
+  const body = fenced ? fenced[1] : arr ? t.slice(t.indexOf("["), t.lastIndexOf("]") + 1) : t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1);
   return JSON.parse(body);
 }
 
@@ -76,6 +79,20 @@ export class ClaudeDirector implements Director {
     return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   }
 
+  /** Revisão "de IA" das legendas (mesma quantidade, mesmos tempos): corrige e limpa o que não faz sentido. */
+  private async polishCaptions(edl: Edl): Promise<Edl> {
+    const items = edl.captions.items;
+    if (edl.mode !== "video" || !items.length || items.length > 400) return edl;
+    try {
+      const system = `Você revisa legendas de reels de venda (PT-BR). ${RBTECH_GUIDE}\nResponda SOMENTE com um JSON array de strings, com EXATAMENTE ${items.length} itens, na mesma ordem. Use "" para legenda que deve sumir (muleta, ruído, sem sentido). Máx. 6 palavras por item. Não mude números/preços.`;
+      const out = z.array(z.string().max(120)).length(items.length).parse(extractJson(await this.ask(system, [{ type: "text", text: JSON.stringify(items.map((c) => c.text)) }])));
+      edl.captions.items = items.map((c, i) => ({ ...c, text: out[i].trim() })).filter((c) => c.text);
+    } catch (e) {
+      console.warn("[director] revisão das legendas falhou, mantendo a revisão local:", (e as Error).message);
+    }
+    return edl;
+  }
+
   async plan(a: Analysis, b: Brief, frames: { t: number; jpegBase64: string }[] = []): Promise<Edl> {
     if (!b.hasVideo) {
       const system = `Você é o AI Director do ID MOTION, criador de vídeos curtos de venda 100% animados. Responda SOMENTE com JSON válido.\n${MOTION_DOC}\n${STYLE_GUIDE}`;
@@ -101,7 +118,7 @@ export class ClaudeDirector implements Director {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const raw = extractJson(await this.ask(system, content)) as Record<string, unknown>;
-        return finalizeEdl({ ...raw, format: b.format }, a);
+        return this.polishCaptions(finalizeEdl({ ...raw, format: b.format }, a));
       } catch (e) {
         console.warn(`[director] tentativa ${attempt + 1} inválida:`, (e as Error).message);
       }
@@ -119,6 +136,6 @@ export class ClaudeDirector implements Director {
     const text = `BRIEF: ${b.name} / ${b.objective} / ${b.instructions}\nANÁLISE\n${summarize(a)}\n\nEDL ATUAL\n${JSON.stringify(slim)}\n\nPEDIDO: ${instruction}`;
     const parsed = z.object({ reply: z.string().max(600), edl: z.unknown() }).parse(extractJson(await this.ask(system, [{ type: "text", text }])));
     EdlSchema.parse(parsed.edl);
-    return { edl: finalizeEdl(parsed.edl, a), reply: parsed.reply };
+    return { edl: await this.polishCaptions(finalizeEdl(parsed.edl, a)), reply: parsed.reply };
   }
 }

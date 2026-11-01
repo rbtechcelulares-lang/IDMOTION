@@ -1,7 +1,9 @@
 import type { Style } from "../shared/constants";
 
-export const YELLOW = "#FFE600";
-export const SANS = '"Inter", "Helvetica Neue", "Liberation Sans", "DejaVu Sans", Arial, sans-serif';
+// Identidade RBTech: amarelo do letreiro + preto, Poppins
+export const YELLOW = "#FFD60A";
+export const INK = "#0F0F0F";
+export const SANS = '"Poppins", "Liberation Sans", "DejaVu Sans", Arial, sans-serif';
 export const SERIF = '"DejaVu Serif", "Liberation Serif", Georgia, serif';
 
 export type PresetLook = {

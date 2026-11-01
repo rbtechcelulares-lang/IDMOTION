@@ -10,7 +10,7 @@ import { parseTime } from "./engine";
 let bundled: Promise<string> | null = null;
 const prebuilt = process.env.REMOTION_BUNDLE;
 const getBundle = () =>
-  (bundled ??= prebuilt && fs.existsSync(path.join(prebuilt, "index.html")) ? Promise.resolve(prebuilt) : bundle({ entryPoint: path.resolve(__dirname, "../../remotion/index.ts") }).catch((e) => { bundled = null; throw e; }));
+  (bundled ??= prebuilt && fs.existsSync(path.join(prebuilt, "index.html")) ? Promise.resolve(prebuilt) : bundle({ entryPoint: path.resolve(__dirname, "../../remotion/index.ts"), publicDir: path.resolve(__dirname, "../../remotion/public") }).catch((e) => { bundled = null; throw e; }));
 
 export const hasOverlay = (edl: Edl) =>
   edl.mode === "motion" || !!(edl.overlays.intro || edl.overlays.cta || edl.overlays.price || edl.overlays.texts.length || (edl.captions.enabled && edl.captions.items.length) || edl.preset === "cinematic");
