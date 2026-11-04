@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FORMATS, STYLES } from "./constants";
-import { ANIMS, BACKGROUNDS, LAYOUTS, TEXTURES, TRANSITIONS, VISUALS } from "./motion";
+import { ANIMS, APP_SCREENS, BACKGROUNDS, LAYOUTS, TEXTURES, TRANSITIONS, VISUALS } from "./motion";
 
 /** EDL (Edit Decision List) do ID MOTION. Tempos em segundos. */
 export const ClipSchema = z.object({
@@ -28,7 +28,8 @@ export const MotionSceneSchema = z.object({
   compare: z.object({ left: CompareSide, right: CompareSide }).optional(),
   layout: z.enum(LAYOUTS).optional(), // posição do texto
   anim: z.enum(ANIMS).optional(), // animação de entrada do texto
-  visual: z.enum(VISUALS).optional(), // iPhones desenhados animados
+  visual: z.enum(VISUALS).optional(), // iPhones desenhados animados, ou "app" (tela de um sistema)
+  screen: z.enum(APP_SCREENS).optional(), // qual tela do sistema o visual "app" mostra
   transition: z.enum(TRANSITIONS).optional(), // como esta cena ENTRA
 });
 export const MotionThemeSchema = z.object({

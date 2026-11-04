@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, random, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { icons } from "lucide-react";
 import type { Edl } from "../shared/edl";
-import { type Anim, type Background, type Texture, isEmoji, isLightBg } from "../shared/motion";
+import { type Anim, type AppScreen, type Background, type Texture, isEmoji, isLightBg } from "../shared/motion";
 import { INK, LOOK, YELLOW } from "./presets";
 
 type Scene = NonNullable<Edl["motion"]>["scenes"][number];
@@ -249,6 +249,140 @@ function PhonesVisual({ kind, area }: { kind: "phones" | "phone"; area: "upper" 
   );
 }
 
+/** Sem "screen" escolhido pela IA: tela que mais combina com o texto da cena. */
+function screenFor(t: string): AppScreen {
+  const x = t.toLowerCase();
+  return /cota|fornecedor/.test(x) ? "quote" : /meta|equipe|funcion/.test(x) ? "goals" : /lucro|financ|fatur|caixa/.test(x) ? "profit"
+    : /vitrine|carrinho|loja online/.test(x) ? "shop" : /whats|mensag|follow|p[oó]s-venda/.test(x) ? "chat" : /estoque|imei|xml|nota/.test(x) ? "stock"
+    : /\bos\b|ordem|reparo|acompanha|garantia/.test(x) ? "os" : "dashboard";
+}
+
+const UI = { bg: "#f4f4f1", card: "#ffffff", ink: "#141414", muted: "#7a7a7a", line: "#e6e6e2", green: "#1fa463", blue: "#2f6fe4" };
+
+/** Celular mostrando a tela de um sistema, com os itens entrando animados (visual "app"). */
+function AppVisual({ screen, area }: { screen: AppScreen; area: "upper" | "lower" | "middle" }) {
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+  const w = Math.min(width * 0.5, height * 0.25);
+  const k = w / 330; // unidade da tela
+  const top = area === "upper" ? height * 0.1 : area === "lower" ? height * 0.46 : height * 0.22;
+  const enter = spring({ frame, fps, config: { damping: 16, stiffness: 120 } });
+  const item = (i: number) => spring({ frame: Math.max(0, frame - 8 - i * 5), fps, config: { damping: 14, stiffness: 170 } });
+  const row = (i: number): React.CSSProperties => { const s = item(i); return { opacity: Math.min(1, s * 1.6), transform: `translateY(${(1 - s) * 30 * k}px)` }; };
+  const grow = (i: number) => interpolate(frame, [12 + i * 5, 40 + i * 5], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const card: React.CSSProperties = { background: UI.card, borderRadius: 16 * k, padding: `${14 * k}px ${16 * k}px`, boxShadow: `0 ${2 * k}px ${8 * k}px rgba(0,0,0,.06)`, display: "flex", alignItems: "center", gap: 12 * k };
+  const chip = (txt: string, bg: string, fg = "#fff") => <span style={{ marginLeft: "auto", background: bg, color: fg, fontSize: 17 * k, fontWeight: 800, padding: `${5 * k}px ${12 * k}px`, borderRadius: 99, whiteSpace: "nowrap" }}>{txt}</span>;
+  const t1: React.CSSProperties = { fontSize: 21 * k, fontWeight: 800, color: UI.ink, lineHeight: 1.2 };
+  const t2: React.CSSProperties = { fontSize: 16 * k, color: UI.muted, fontWeight: 600 };
+  const dot = (c: string, txt: string) => <div style={{ width: 44 * k, height: 44 * k, borderRadius: 12 * k, background: c, color: c === YELLOW ? INK : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 * k, flexShrink: 0 }}>{txt}</div>;
+  const TITLES: Record<AppScreen, string> = { os: "Ordens de serviço", quote: "Cotação de peças", goals: "Metas do mês", profit: "Financeiro", shop: "Vitrine online", chat: "WhatsApp", stock: "Estoque", dashboard: "Painel da loja" };
+
+  let body: React.ReactNode;
+  if (screen === "os" || screen === "dashboard") {
+    const os = [["#1042", "iPhone 13 · Tela", "Pronto", UI.green], ["#1043", "Galaxy A54 · Bateria", "Em serviço", YELLOW], ["#1044", "Moto G84 · Conector", "Em análise", "#9a9a9a"], ["#1045", "iPhone 11 · Câmera", "Recebido", UI.blue]];
+    body = (
+      <>
+        {screen === "dashboard" && (
+          <div style={{ ...card, flexDirection: "column", alignItems: "flex-start", gap: 4 * k, background: INK, ...row(0) }}>
+            <span style={{ ...t2, color: "#bbb" }}>Faturamento hoje</span>
+            <span style={{ fontSize: 40 * k, fontWeight: 900, color: YELLOW }}>R$ {Math.round(1840 * grow(0)).toLocaleString("pt-BR")},00</span>
+            <div style={{ width: "100%", height: 8 * k, borderRadius: 9, background: "#333" }}><div style={{ width: `${68 * grow(0)}%`, height: "100%", borderRadius: 9, background: YELLOW }} /></div>
+          </div>
+        )}
+        {os.slice(0, screen === "dashboard" ? 3 : 4).map(([n, d, st, c], i) => (
+          <div key={n} style={{ ...card, ...row(i + 1) }}>
+            {dot(INK, "OS")}
+            <div><div style={t1}>{n}</div><div style={t2}>{d}</div></div>
+            {chip(st, c, c === YELLOW ? INK : "#fff")}
+          </div>
+        ))}
+      </>
+    );
+  } else if (screen === "quote") {
+    const q: [string, number, boolean][] = [["Fornecedor A", 289, false], ["Fornecedor B", 245, true], ["Fornecedor C", 310, false]];
+    body = (
+      <>
+        <div style={{ ...card, ...row(0) }}>{dot(YELLOW, "🔧")}<div><div style={t1}>Tela iPhone 13</div><div style={t2}>3 respostas</div></div></div>
+        {q.map(([f, v, best], i) => (
+          <div key={f} style={{ ...card, ...row(i + 1), outline: best ? `${3 * k}px solid ${YELLOW}` : undefined, transform: `${row(i + 1).transform} scale(${best ? 1 + 0.04 * grow(4) : 1})` }}>
+            <div><div style={t1}>{f}</div><div style={t2}>{best ? "Entrega hoje" : "Entrega 2 dias"}</div></div>
+            <span style={{ marginLeft: "auto", ...t1, fontSize: 26 * k, color: best ? UI.green : UI.ink }}>R$ {v}</span>
+          </div>
+        ))}
+        <div style={{ ...row(5), background: YELLOW, color: INK, borderRadius: 14 * k, padding: `${14 * k}px`, textAlign: "center", fontWeight: 900, fontSize: 21 * k }}>Pedir ao Fornecedor B</div>
+      </>
+    );
+  } else if (screen === "goals") {
+    const g: [string, number][] = [["Ana", 92], ["João", 74], ["Carlos", 58]];
+    body = g.map(([n, pct], i) => (
+      <div key={n} style={{ ...card, ...row(i), flexDirection: "column", alignItems: "stretch", gap: 8 * k }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 * k }}>{dot(i === 0 ? YELLOW : INK, n[0])}<div style={t1}>{n}</div><span style={{ marginLeft: "auto", ...t1, color: i === 0 ? UI.green : UI.ink }}>{Math.round(pct * grow(i))}%</span></div>
+        <div style={{ height: 12 * k, borderRadius: 9, background: UI.line }}><div style={{ width: `${pct * grow(i)}%`, height: "100%", borderRadius: 9, background: i === 0 ? UI.green : YELLOW }} /></div>
+        <div style={t2}>Meta: R$ {(15 - i * 3)}.000 em vendas</div>
+      </div>
+    ));
+  } else if (screen === "profit") {
+    const bars = [40, 62, 48, 75, 58, 88, 70];
+    body = (
+      <>
+        <div style={{ ...card, ...row(0), flexDirection: "column", alignItems: "flex-start", gap: 2 * k }}>
+          <span style={t2}>Lucro real hoje</span>
+          <span style={{ fontSize: 44 * k, fontWeight: 900, color: UI.green }}>R$ {Math.round(1120 * grow(0)).toLocaleString("pt-BR")}</span>
+          <span style={t2}>peças, taxas e despesas descontadas</span>
+        </div>
+        <div style={{ ...card, ...row(1), alignItems: "flex-end", height: 190 * k, gap: 10 * k }}>
+          {bars.map((b, i) => <div key={i} style={{ flex: 1, height: `${b * grow(i + 1)}%`, borderRadius: 6 * k, background: i === bars.length - 2 ? YELLOW : INK }} />)}
+        </div>
+      </>
+    );
+  } else if (screen === "shop") {
+    const items: [string, string][] = [["Capa MagSafe", "R$ 59,90"], ["Película 3D", "R$ 29,90"], ["iPhone 12 seminovo", "R$ 2.199"], ["Carregador 20W", "R$ 69,90"]];
+    body = (
+      <>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 * k }}>
+          {items.map(([n, v], i) => (
+            <div key={n} style={{ ...card, ...row(i), flexDirection: "column", alignItems: "flex-start", gap: 6 * k, padding: 12 * k }}>
+              <div style={{ width: "100%", height: 90 * k, borderRadius: 10 * k, background: i % 2 ? "#ececec" : "#fff4c2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44 * k }}>{["📱", "🛡️", "📲", "🔌"][i]}</div>
+              <div style={{ ...t1, fontSize: 17 * k }}>{n}</div><div style={{ ...t1, fontSize: 18 * k, color: UI.green }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...row(5), background: INK, color: "#fff", borderRadius: 14 * k, padding: 14 * k, display: "flex", alignItems: "center", gap: 10 * k, fontWeight: 800, fontSize: 18 * k }}>🛒 2 itens · Retirada hoje 17:00 <span style={{ marginLeft: "auto", color: YELLOW }}>Reservar</span></div>
+      </>
+    );
+  } else if (screen === "chat") {
+    const msgs: [string, boolean][] = [["Olá, Maria! Seu iPhone 13 está pronto ✅", true], ["Acompanhe o reparo pelo link 🔗", true], ["Que rápido! Passo aí às 17h 🙌", false], ["Como ficou o aparelho? Avalie a gente ⭐", true]];
+    body = msgs.map(([m, me], i) => (
+      <div key={i} style={{ ...row(i), alignSelf: me ? "flex-end" : "flex-start", maxWidth: "82%", background: me ? "#d9fdd3" : UI.card, borderRadius: 16 * k, padding: `${12 * k}px ${14 * k}px`, fontSize: 19 * k, fontWeight: 600, color: UI.ink, boxShadow: `0 ${2 * k}px ${6 * k}px rgba(0,0,0,.06)` }}>{m}</div>
+    ));
+  } else {
+    const st: [string, string, string][] = [["Tela iPhone 13", "Lote 0425", "8 un"], ["Bateria Galaxy A54", "Lote 0425", "15 un"], ["iPhone 12 seminovo", "IMEI 35•••• 4821", "1 un"]];
+    body = (
+      <>
+        <div style={{ ...card, ...row(0), background: "#e9f8ef" }}>{dot(UI.green, "XML")}<div><div style={t1}>Nota importada ✓</div><div style={t2}>12 itens entraram no estoque</div></div></div>
+        {st.map(([n, d, q], i) => <div key={n} style={{ ...card, ...row(i + 1) }}><div><div style={t1}>{n}</div><div style={t2}>{d}</div></div>{chip(q, INK)}</div>)}
+      </>
+    );
+  }
+
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, top, display: "flex", justifyContent: "center", perspective: 1400 }}>
+      <div style={{ transform: `translateY(${(1 - enter) * height * 0.35 + Math.sin(frame / 28) * 6 * k}px) rotateY(${-12 + Math.sin(frame / 40) * 4}deg) rotateX(4deg)`, opacity: Math.min(1, enter * 1.6) }}>
+        <div style={{ width: w, height: w * 2.05, borderRadius: w * 0.15, background: "linear-gradient(135deg,#3a3a3a,#0d0d0d 45%,#2a2a2a)", padding: w * 0.03, boxShadow: `0 ${w * 0.08}px ${w * 0.25}px rgba(0,0,0,.55), 0 0 ${w * 0.2}px rgba(255,214,10,.18)` }}>
+          <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: w * 0.125, overflow: "hidden", background: UI.bg, fontFamily: '"Poppins", sans-serif' }}>
+            <div style={{ background: INK, padding: `${44 * k}px ${18 * k}px ${16 * k}px`, display: "flex", alignItems: "center", gap: 10 * k }}>
+              <div style={{ width: 14 * k, height: 14 * k, borderRadius: 99, background: YELLOW }} />
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 22 * k }}>{TITLES[screen]}</span>
+            </div>
+            <div style={{ position: "absolute", top: 12 * k, left: "50%", transform: "translateX(-50%)", width: 110 * k, height: 26 * k, borderRadius: 99, background: "#000" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 * k, padding: 14 * k }}>{body}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TextureLayer({ texture, light, u, frame }: { texture: Texture; light: boolean; u: number; frame: number }) {
   const ink = light ? "rgba(0,0,0," : "rgba(255,255,255,";
   if (texture === "none") return null;
@@ -401,7 +535,8 @@ export function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; sce
     wrap.transform = `scale(${z})`;
     wrap.filter = `blur(${interpolate(frame, [0, 8], [8, 0], clamp)}px)`;
   }
-  const visualEl = scene.visual && scene.visual !== "none" ? <PhonesVisual kind={scene.visual} area={layout === "top" ? "lower" : layout === "bottom" ? "upper" : "middle"} /> : null;
+  const area = layout === "top" ? "lower" : layout === "bottom" ? "upper" : "middle";
+  const visualEl = scene.visual === "app" ? <AppVisual screen={scene.screen ?? screenFor(plain)} area={area} /> : scene.visual && scene.visual !== "none" ? <PhonesVisual kind={scene.visual} area={area} /> : null;
   const subText = (scene.sub ?? "").replace(/[*~]/g, ""); // marcações de destaque não aparecem no subtítulo
   const subStyle: React.CSSProperties = { fontSize: 48 * u, fontWeight: 600, color: pal.light ? "#333" : "#d9d9d9", opacity: fadeIn, textAlign: align, maxWidth: "100%" };
 

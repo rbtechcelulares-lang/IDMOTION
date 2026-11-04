@@ -19,7 +19,11 @@ export const BG_LIBRARY: Record<(typeof BACKGROUNDS)[number], string> = {
 };
 export const LAYOUTS = ["center", "top", "bottom", "left", "right"] as const;
 export const ANIMS = ["rise", "pop", "slide", "zoom", "type", "blur", "mask"] as const;
-export const VISUALS = ["none", "phones", "phone"] as const;
+// app = celular mostrando a TELA de um sistema/app (OS, cotação, metas, lucro, vitrine, WhatsApp, estoque) — para vídeos de software
+export const VISUALS = ["none", "phones", "phone", "app"] as const;
+/** Tela mostrada no visual "app": ordens de serviço, cotação com fornecedores, metas da equipe, lucro/gráfico, vitrine/carrinho, conversa, estoque, painel geral. */
+export const APP_SCREENS = ["os", "quote", "goals", "profit", "shop", "chat", "stock", "dashboard"] as const;
+export type AppScreen = (typeof APP_SCREENS)[number];
 /** Transição para ENTRAR na cena (skill RBTech: varreduras lr/rl/tb/bt e corte seco com flash; misture duas). */
 export const TRANSITIONS = ["fade", "wipe-lr", "wipe-rl", "wipe-tb", "wipe-bt", "flash", "zoom"] as const;
 export type Transition = (typeof TRANSITIONS)[number];
@@ -52,6 +56,11 @@ export const isLightBg = (b: Background) => b === "white" || b === "paper" || b 
 
 /** Ícones (nomes Lucide) e as palavras que os chamam. */
 export const ICON_WORDS: [RegExp, string][] = [
+  [/novidade|lan[çc]a|atualiza/, "Rocket"], [/cota[çc]|fornecedor/, "Handshake"], [/\bmetas?\b|objetivo/, "Target"],
+  [/\bos\b|ordem de servi|or[çc]amento/, "ClipboardList"], [/vitrine/, "Store"], [/xml|nota fiscal|\bnota\b/, "FileText"],
+  [/estoque|imei|lote/, "Package"], [/lucro|financeiro|faturamento|caixa|gr[aá]fico/, "TrendingUp"],
+  [/acompanha|\blink\b/, "Link"], [/logo|cores|marca\b/, "Palette"], [/follow|p[oó]s-venda/, "MessageSquareText"],
+  [/\bpe[çc]as?\b/, "Wrench"], [/mais barato|economi/, "PiggyBank"],
   [/whats|mensag|chat|conversa|direct|zap/, "MessageSquareText"],
   [/telefon|ligando|ligar|liga[çc]/, "Phone"],
   [/caderno|anota|papel/, "NotebookText"], [/planilha|tabela/, "Sheet"],

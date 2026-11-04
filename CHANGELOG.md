@@ -113,3 +113,8 @@
 ## Briefing "Textos na tela:"
 - Tudo antes de "Textos na tela:" (ou "Na tela:", "Cenas:", "Frases:") é direção; cada linha depois vira uma cena — em qualquer IA (Haiku, Gemini, Opus, regras).
 - A IA recebe a lista obrigatória de cenas; se devolver direção como cena ou pular textos, o plano é refeito (ou cai nas regras, que já separam certo).
+
+## IA entende antes de criar
+- A IA não recebe mais o rascunho das regras: primeiro escreve o que entendeu (assunto, público, mensagem, visuais) e depois cria as cenas; o entendimento aparece nas notas do projeto.
+- Guia RBTech só vale para vídeos da RBTech; outras marcas usam só as técnicas de ritmo e motion.
+- Novo visual "app": celular com a tela de um sistema (OS, cotação, metas, lucro, vitrine, WhatsApp, estoque, painel), escolhido pela IA.

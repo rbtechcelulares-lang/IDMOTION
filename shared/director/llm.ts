@@ -27,26 +27,34 @@ Regras: captions.items fica vazio (o sistema gera a partir da transcrição). Cl
 TRILHA: se hasMusic=true use {"volume":0.16-0.22,"track":null} (trilha enviada). Se hasMusic=false ESCOLHA uma trilha gerada: trap = energia/venda direta (130-150 bpm),
 pop = animado/lançamento/leve (98-114), light = premium/calmo/clean (80-92); volume 0.16-0.2 com fala; varie bpm/shift/seed a cada vídeo.`;
 
-const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte): responda com
-{"mode":"motion","format":...,"preset":...,"clips":[],"motion":{
-  "theme":{"bg": um fundo da biblioteca,"texture":"none"|"grain"|"dots"|"grid"|"lines"|"stripes","floaters":{"items":[ícones Lucide ou emojis]}|null},
+const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte).
+PASSO 1 — ENTENDA antes de criar. Leia o pedido inteiro como um diretor de arte leria e responda no campo "entendimento":
+  o que está sendo divulgado (produto físico? loja? serviço? sistema/app/software?), para quem, qual a mensagem principal, que tom,
+  e quais imagens fazem sentido para ESSE assunto (ex.: um sistema de gestão pede telas do sistema; uma loja de iPhone pede iPhones; um serviço pede o resultado do serviço).
+  Descrições como "fundo escuro com detalhes amarelos" são INTENÇÃO de arte: interprete o sentido (fundo escuro, amarelo só nos detalhes), não copie palavras soltas.
+PASSO 2 — CRIE o vídeo a partir desse entendimento, usando a biblioteca abaixo como ferramentas (escolha livre; nenhuma é obrigatória).
+Responda SOMENTE com JSON:
+{"entendimento":{"assunto":string,"publico":string,"mensagem":string,"tom":string,"visuais":string},
+ "mode":"motion","format":...,"preset":...,"clips":[],"motion":{
+  "theme":{"bg": um fundo da biblioteca,"texture":"none"|"grain"|"dots"|"grid"|"lines"|"stripes","floaters":{"items":[ícones Lucide ou emojis ligados ao ASSUNTO]}|null},
   "scenes":[{"kind":"title"|"feature"|"price"|"cta"|"compare"|"counter"|"check","text":string<=90,"sub"?:string<=120,"duration":0.8-8,
-    "icon"?: nome de ícone Lucide (Phone, MessageSquareText, NotebookText, Sheet, Cloud, ShieldCheck, Gift, Truck, CreditCard, Wrench, Tag, Zap, Smartphone, Users, MapPin, Sparkles, BadgeCheck, Clock, ShoppingCart) ou um emoji,
-    "bg"?: fundo só desta cena, "layout"?: "center"|"top"|"bottom"|"left"|"right", "anim"?: "rise"|"pop"|"slide"|"zoom"|"type"|"blur"|"mask", "visual"?: "none"|"phones"|"phone", "transition"?: "fade"|"wipe-lr"|"wipe-rl"|"wipe-tb"|"wipe-bt"|"flash"|"zoom",
+    "icon"?: ícone Lucide (ex.: Phone, MessageSquareText, ClipboardList, Handshake, Target, TrendingUp, Store, Package, FileText, Link, Palette, Rocket, Wrench, Users, ShoppingCart, ShieldCheck, Gift, CreditCard, Zap, Smartphone, Laptop, Cloud, Clock, MapPin, Sparkles, BadgeCheck, PiggyBank) ou um emoji,
+    "bg"?: fundo só desta cena, "layout"?: "center"|"top"|"bottom"|"left"|"right", "anim"?: "rise"|"pop"|"slide"|"zoom"|"type"|"blur"|"mask",
+    "visual"?: "none"|"phones"|"phone"|"app", "screen"?: "os"|"quote"|"goals"|"profit"|"shop"|"chat"|"stock"|"dashboard",
+    "transition"?: "fade"|"wipe-lr"|"wipe-rl"|"wipe-tb"|"wipe-bt"|"flash"|"zoom",
     "compare"?: {"left":{"label","value","sub"?},"right":{"label","value","sub"?}} }]},
 ${LIBRARY_DOC}
  "captions":{"enabled":false,"position":"bottom","size":"md","items":[]},"overlays":{"intro":null,"texts":[],"price":null,"cta":null},
  "audio":{"sourceVolume":1,"music":{"volume":0.9,"track":{"genre":"trap"|"pop"|"light","bpm":number,"shift":number,"seed":number}|null},"narration":{"text":string,"volume":1}|null,"normalize":true},"notes":string}
-Texto: use *palavra* para destacar (cor de acento) e ~palavra~ para riscar. compare = dois cards "A vs B" (right é o vencedor); counter = número que conta (text "R$ 1,26", sub "Menos de"); check = ✓ + texto.
-Visual: escolha da BIBLIOTECA o que o roteiro pede (ex.: "luzes percorrem" → spotlight; preço/revelação → rays ou spotlight + visual phones; brinde/sorteio → particles; urgência/data → speed; garantia/premium → metal).
-Varie fundo, layout e animação entre as cenas (nunca o mesmo fundo em tudo). iPhones aparecendo → visual "phones" (ou "phone") e texto com layout "bottom". Use bg "paper" para o "jeito antigo/papel". Obedeça pedidos de fundo/textura/emoji do usuário.
-BRIEFING: as instruções podem ser um prompt completo de campanha. Use SOMENTE os textos que devem aparecer na tela (entre aspas, depois de "Texto:"/"Surge a frase", e a HEADLINE),
-respeitando a ordem das cenas do roteiro. Descrições ("Tela escura", "Direção criativa", "Estilo", "iPhones aparecem…") NÃO são cenas: viram decisões visuais (fundo, ícones, ritmo, duração).
-Se o briefing já tem encerramento, não invente CTA nem textos extras.
-Regras: 1ª cena "title", última "cta" (ou o encerramento do briefing). Textos curtos e fortes (até ~8 palavras); em "price" o text é o valor ("R$ 499,90") e sub o contexto ("iPhones a partir de").
-Use só informações das instruções. Duração total típica 12-30s. Trilha: se hasMusic=true use "track":null; senão escolha track (trap energia, pop animado, light premium) com volume 0.9.`;
+Ferramentas visuais: "phones"/"phone" = iPhones desenhados (para vender aparelhos); "app" = um celular mostrando a TELA de um sistema, com "screen":
+os (ordens de serviço com status), quote (cotação com fornecedores), goals (metas por funcionário), profit (lucro/gráfico), shop (vitrine/carrinho), chat (conversa WhatsApp), stock (estoque/nota XML/IMEI), dashboard (painel geral).
+Com visual, use layout "bottom" para o texto não cobrir a imagem. Texto: *palavra* = destaque (cor de acento), ~palavra~ = riscado. compare = cards "A vs B" (right vence); counter = número contando; check = ✓ + texto.
+Varie fundo, layout, animação e visual entre as cenas para dar ritmo. Obedeça pedidos explícitos do usuário.
+BRIEFING: as instruções podem misturar DIREÇÃO (público, tom, duração, estilo, descrição de cena) com os TEXTOS DE TELA. Só os textos de tela viram cenas, na ordem; a direção vira decisões de arte.
+Se o briefing já tem encerramento, não invente CTA nem textos extras. Em "price" o text é o valor ("R$ 499,90") e sub o contexto.
+Use só informações das instruções (não invente fatos nem preços). Duração: a pedida; se não houver, 12-30s. Trilha: se hasMusic=true use "track":null; senão escolha track (trap energia, pop animado, light premium) com volume 0.9.`;
 
-const STYLE_GUIDE = `${RBTECH_GUIDE}\nEstilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;
+const STYLE_GUIDE = `GUIA DA MARCA RBTECH (use quando o vídeo for da RBTech/loja de iPhones; para OUTRAS marcas e produtos, aproveite só as técnicas de ritmo, texto e motion, nunca o assunto iPhone):\n${RBTECH_GUIDE}\nEstilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;
 
 const words = (s: string) => new Set(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[\p{L}\p{N}]{3,}/gu) ?? []);
 /** A IA seguiu o briefing? Nenhuma cena de direção e quase todos os textos de tela presentes. */
@@ -207,15 +215,15 @@ export class LlmDirector implements Director {
   async plan(a: Analysis, b: Brief, frames: { t: number; jpegBase64: string }[] = []): Promise<Edl> {
     if (!b.hasVideo) {
       const system = `Você é o AI Director do ID MOTION, criador de vídeos curtos de venda 100% animados. Responda SOMENTE com JSON válido.\n${MOTION_DOC}\n${STYLE_GUIDE}`;
-      // rascunho do diretor por regras: ponto de partida que a IA deve MELHORAR (não copiar às cegas)
-      const draft = await this.fallback.plan(a, b).then((d) => ({ theme: d.motion?.theme, scenes: d.motion?.scenes })).catch(() => null);
       const screen = screenLines(b.instructions || "");
       const must = screen ? `\n\nTEXTOS DE TELA (OBRIGATÓRIO): o vídeo tem EXATAMENTE estas ${screen.length} cenas, nesta ordem, uma por linha; pode encurtar/ajustar a escrita e o *destaque*, mas não junte, não pule e não crie cenas com a direção (público, tom, duração, fundo):\n${screen.map((t, i) => `${i + 1}. ${t}`).join("\n")}` : "";
-      const text = `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções:\n${b.instructions || "(nenhuma)"}${must}\n\nRASCUNHO (regras; melhore textos, ordem, ritmo, ícones e visual, sem inventar fatos):\n${JSON.stringify(draft)}\n\nGere o EDL motion.`;
+      const text = `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções:\n${b.instructions || "(nenhuma)"}${must}\n\nPrimeiro entenda (campo "entendimento"), depois gere o EDL motion.`;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const raw = extractJson(await this.ask(system, [{ type: "text", text }])) as Record<string, unknown>;
           const edl = withMusic(finalizeEdl({ ...raw, mode: "motion", clips: [], format: b.format }, a), b);
+          const ent = raw.entendimento as Record<string, string> | undefined;
+          if (ent?.assunto) edl.notes = `Entendi: ${[ent.assunto, ent.publico && `para ${ent.publico}`, ent.visuais && `visual: ${ent.visuais}`].filter(Boolean).join(" · ")}. ${edl.notes}`.slice(0, 500);
           if (screen && !followsScreen(edl, screen)) throw new Error("a IA não seguiu os textos de tela do briefing");
           return edl;
         } catch (e) {
