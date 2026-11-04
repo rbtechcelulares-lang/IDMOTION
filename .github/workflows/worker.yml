@@ -55,11 +55,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # FFmpeg estático + fonte de emoji guardados em cache: não depende do apt do Ubuntu (que às vezes trava por muitos minutos)
+      - name: Cache do FFmpeg e fontes
+        id: ff
+        uses: actions/cache@v4
+        with:
+          path: ~/idm-tools
+          key: idm-tools-v1
       - name: FFmpeg e fontes
+        timeout-minutes: 8
         run: |
-          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
-          fc-list | grep -qi dejavu || sudo apt-get install -y -qq fonts-dejavu-core || true
-          fc-list | grep -qi "color emoji" || sudo apt-get install -y -qq fonts-noto-color-emoji || true
+          T="$HOME/idm-tools"; mkdir -p "$T/bin" "$HOME/.fonts"
+          if [ ! -x "$T/bin/ffmpeg" ]; then
+            curl -fsSL --retry 3 --max-time 240 -o /tmp/ff.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz \
+              && tar -xJf /tmp/ff.tar.xz -C /tmp && cp /tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg /tmp/ffmpeg-master-latest-linux64-gpl/bin/ffprobe "$T/bin/" || true
+          fi
+          if [ ! -f "$T/NotoColorEmoji.ttf" ]; then
+            curl -fsSL --retry 3 --max-time 120 -o "$T/NotoColorEmoji.ttf" https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf || rm -f "$T/NotoColorEmoji.ttf"
+          fi
+          [ -f "$T/NotoColorEmoji.ttf" ] || fc-list | grep -qi "color emoji" || sudo timeout 180 apt-get -o Acquire::Retries=3 install -y -qq fonts-noto-color-emoji || true
+          [ -f "$T/NotoColorEmoji.ttf" ] && cp "$T/NotoColorEmoji.ttf" "$HOME/.fonts/" && fc-cache -f >/dev/null 2>&1 || true
+          if [ -x "$T/bin/ffmpeg" ]; then echo "$T/bin" >> "$GITHUB_PATH"; export PATH="$T/bin:$PATH"
+          else
+            # reserva: apt com limite de tempo e novas tentativas
+            sudo timeout 300 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq && sudo timeout 300 apt-get -o Acquire::Retries=3 install -y -qq ffmpeg
+          fi
+          fc-list | grep -qi dejavu || sudo timeout 120 apt-get install -y -qq fonts-dejavu-core || true
           ffmpeg -version | head -1
       - name: Cache de dependências e Chrome
         id: nm
