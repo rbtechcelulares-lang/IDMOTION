@@ -76,3 +76,17 @@ test("texto longo da IA é cortado em vez de derrubar o plano", async () => {
   assert.equal(e.notes.length, 500);
   assert.equal(e.overlays.texts[0].text.length, 80);
 });
+
+test("cortes: borda nunca no meio da palavra e jump zoom só nas pausas", async () => {
+  const { snapToWords, punchClips } = await import("../shared/director/finalize");
+  // fala contínua 0–12s: palavras de 0.3s com pausas de 0.05s, e uma frase terminando em 4.2
+  const words: { text: string; start: number; end: number }[] = [];
+  for (let t = 0; t < 12; t += 0.35) words.push({ text: Math.abs(t - 3.85) < 0.01 ? "fim." : "pala", start: +t.toFixed(2), end: +(t + 0.3).toFixed(2) });
+  const snapped = snapToWords([{ in: 1.1, out: 6.15, speed: 1, zoom: 1 }], words, 12);
+  const inWord = (t: number) => words.some((w) => t > w.start + 0.001 && t < w.end - 0.001);
+  assert.ok(!inWord(snapped[0].in) && !inWord(snapped[0].out), JSON.stringify(snapped));
+  const pieces = punchClips([{ in: 0, out: 12, speed: 1, zoom: 1 }], "viral", words);
+  assert.ok(pieces.length >= 4);
+  for (const p of pieces.slice(1)) assert.ok(!inWord(p.in), `corte em ${p.in} cai dentro de palavra`);
+  assert.ok(pieces.some((p) => Math.abs(p.in - 4.175) < 0.03), "preferiu o fim da frase");
+});

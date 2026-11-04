@@ -132,3 +132,8 @@
 - Transcrição: se a ElevenLabs falhar (ex.: chave sem permissão Speech to Text), o Gemini transcreve (tempo por frase); o motivo aparece no chat e no painel de transcrição.
 - Texto longo da IA é cortado em vez de rejeitar o plano (o plano com cards estava sendo descartado por "notes" > 500).
 - IA usa 2–4 cards de motion por vídeo; abertura vira título por cima da filmagem quando a pessoa já fala no começo (não esconde a legenda).
+
+## Ajuste fino do vídeo real (legenda, cards, cortes)
+- Legenda: palavras não invadem a vizinha (sem estouro de escala na entrada) e espaço maior; some quando o texto de apoio já diz a mesma frase.
+- Cards sobre a filmagem 35% maiores; contador mantém "x"/"%"/sufixo ("Até 24x").
+- Cortes: borda do clipe nunca no meio de palavra; jump zoom só troca nas pausas da fala (de preferência fim de frase).

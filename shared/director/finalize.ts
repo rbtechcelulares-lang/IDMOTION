@@ -7,7 +7,7 @@ export const CAPTION_WORDS = { viral: 3, premium: 5, cinematic: 6 } as const;
 /** Valida (zod), limita à fonte e regenera as legendas a partir da transcrição. */
 export function finalizeEdl(raw: unknown, a: Analysis): Edl {
   const edl = normalizeEdl(anchorToSource(raw), a.duration);
-  if (edl.mode === "video") edl.clips = punchClips(edl.clips, edl.preset);
+  if (edl.mode === "video") edl.clips = punchClips(snapToWords(edl.clips, a.words ?? [], a.duration), edl.preset, a.words ?? []);
   if (edl.mode === "video" && a.words?.length) {
     edl.captions.items = wordsToCaptions(mapWordsToTimeline(a.words, edl.clips), CAPTION_WORDS[edl.preset]);
   }
@@ -29,24 +29,65 @@ const PUNCH = { viral: 1.16, premium: 1.07, cinematic: 1.04 } as const;
 const PIECE = { viral: 1.9, premium: 2.6, cinematic: 3.4 } as const;
 
 /**
+ * Corte nunca no meio de uma palavra: se a borda do clipe cai dentro de uma palavra,
+ * o início recua para antes dela e o fim avança para depois dela (com uma folga curta de respiro).
+ */
+export function snapToWords(clips: Edl["clips"], words: { start: number; end: number }[], dur: number): Edl["clips"] {
+  if (!words.length) return clips;
+  const PAD = 0.06;
+  const out = clips.map((c) => {
+    let { in: i, out: o } = c;
+    const k = words.findIndex((w) => i > w.start - PAD && i < w.end);
+    if (k >= 0) { const prev = words[k - 1]; i = Math.max(0, words[k].start - PAD, prev ? (prev.end + words[k].start) / 2 : 0); }
+    const j = words.findIndex((w) => o > w.start && o < w.end + PAD);
+    if (j >= 0) { const next = words[j + 1]; o = Math.min(dur, words[j].end + PAD, next ? (words[j].end + next.start) / 2 : dur); }
+    return { ...c, in: +i.toFixed(3), out: +o.toFixed(3) };
+  });
+  // depois do ajuste, clipes seguidos não podem se sobrepor (repetiria áudio)
+  for (let k = 1; k < out.length; k++) if (out[k].in < out[k - 1].out && out[k].in > out[k - 1].in) out[k] = { ...out[k], in: out[k - 1].out };
+  return out.filter((c) => c.out - c.in > 0.15);
+}
+
+/**
  * Tomadas longas sem corte viram "jump zoom" (skill RBTech): a tomada é dividida em pedaços contínuos
  * que alternam enquadramento aberto/fechado — o tempo não muda, só o ritmo visual.
+ * Com transcrição, a troca acontece só numa PAUSA entre palavras (de preferência fim de frase), nunca no meio da fala.
  */
-export function punchClips(clips: Edl["clips"], preset: Edl["preset"]): Edl["clips"] {
+export function punchClips(clips: Edl["clips"], preset: Edl["preset"], words: { text?: string; start: number; end: number }[] = []): Edl["clips"] {
   const out: Edl["clips"] = [];
+  const piece = PIECE[preset];
   for (const c of clips) {
     const len = (c.out - c.in) / (c.speed || 1);
-    const piece = PIECE[preset];
     if (len < piece * 1.6) { out.push(c); continue; }
-    const n = Math.round(len / piece);
-    const step = (c.out - c.in) / n;
-    for (let k = 0; k < n; k++) {
+    let cuts: number[];
+    const inside = words.filter((w) => w.start >= c.in && w.end <= c.out);
+    if (inside.length >= 2) {
+      // pausas entre palavras dentro do clipe: [tempo do corte, peso] — fim de frase pesa mais
+      const gaps = inside.slice(1).map((w, k) => { const prev = inside[k]; const g = w.start - prev.end; return { t: prev.end + g / 2, g, end: /[.!?,;:]$/.test(prev.text ?? "") }; }).filter((x) => x.g >= 0.04 || x.end);
+      cuts = [];
+      let last = c.in;
+      for (;;) {
+        const target = last + piece * (c.speed || 1);
+        if (c.out - target < piece * 0.6) break;
+        const near = gaps.filter((x) => x.t > last + piece * 0.55 && x.t < last + piece * 1.6 && c.out - x.t > piece * 0.5);
+        if (!near.length) break;
+        const best = near.reduce((a, b) => (score(b, target) > score(a, target) ? b : a));
+        cuts.push(best.t);
+        last = best.t;
+      }
+    } else {
+      const n = Math.round(len / piece);
+      cuts = Array.from({ length: n - 1 }, (_, k) => c.in + ((k + 1) * (c.out - c.in)) / n);
+    }
+    const edges = [c.in, ...cuts, c.out];
+    for (let k = 0; k < edges.length - 1; k++) {
       const z = k % 2 === 0 ? c.zoom : c.zoom > 1.02 ? 1 : PUNCH[preset];
-      out.push({ ...c, in: +(c.in + k * step).toFixed(3), out: +(k === n - 1 ? c.out : c.in + (k + 1) * step).toFixed(3), zoom: z });
+      out.push({ ...c, in: +edges[k].toFixed(3), out: +edges[k + 1].toFixed(3), zoom: z });
     }
   }
   return out.slice(0, 200);
 }
+const score = (x: { t: number; g: number; end: boolean }, target: number) => (x.end ? 1 : 0) + Math.min(x.g, 0.4) * 2 - Math.abs(x.t - target) * 0.6;
 
 type Raw = Record<string, unknown> & { clips?: { in: number; out: number; speed?: number }[]; overlays?: Record<string, unknown> };
 /**

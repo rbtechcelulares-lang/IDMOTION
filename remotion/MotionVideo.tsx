@@ -506,7 +506,7 @@ function RichText({ text, size, color, accent, mark, preset, align = "center", w
   );
 }
 
-export function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; scene: Scene; bg: Background; index: number; total: number; dur: number }) {
+export function SceneView({ edl, scene, bg, index, total, dur, boost = 1 }: { edl: Edl; scene: Scene; bg: Background; index: number; total: number; dur: number; boost?: number }) {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const u = Math.min(width, height) / 1080;
@@ -518,7 +518,7 @@ export function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; sce
   const plain = scene.text.replace(/[*~]/g, "");
   const words = plain.split(/\s+/);
   const vertical = height > width;
-  const big = (scene.kind === "title" ? 130 : scene.kind === "price" || scene.kind === "counter" ? 170 : scene.kind === "cta" ? 100 : 92) * (vertical ? 1 : 0.8) * (preset === "cinematic" ? 0.85 : 1);
+  const big = (scene.kind === "title" ? 130 : scene.kind === "price" || scene.kind === "counter" ? 170 : scene.kind === "cta" ? 100 : 92) * (vertical ? 1 : 0.8) * (preset === "cinematic" ? 0.85 : 1) * boost;
   const longest = Math.max(4, ...words.map((w) => w.length * (scene.kind === "price" || scene.kind === "counter" ? 0.85 : 1)));
   const size = Math.min(big * u, (width * 0.84) / (longest * (preset === "viral" ? 0.72 : 0.6)));
   // posição do texto: definida por cena (scene.layout) — com iPhones, o texto vai para baixo/cima deles
@@ -538,7 +538,7 @@ export function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; sce
   const area = layout === "top" ? "lower" : layout === "bottom" ? "upper" : "middle";
   const visualEl = scene.visual === "app" ? <AppVisual screen={scene.screen ?? screenFor(plain)} area={area} /> : scene.visual && scene.visual !== "none" ? <PhonesVisual kind={scene.visual} area={area} /> : null;
   const subText = (scene.sub ?? "").replace(/[*~]/g, ""); // marcações de destaque não aparecem no subtítulo
-  const subStyle: React.CSSProperties = { fontSize: 48 * u, fontWeight: 600, color: pal.light ? "#333" : "#d9d9d9", opacity: fadeIn, textAlign: align, maxWidth: "100%" };
+  const subStyle: React.CSSProperties = { fontSize: 48 * u * Math.min(1.25, boost), fontWeight: 600, color: pal.light ? "#333" : "#d9d9d9", opacity: fadeIn, textAlign: align, maxWidth: "100%" };
 
   const iconEl = scene.icon && scene.kind !== "cta" ? (
     <div style={{ transform: `scale(${0.6 + 0.4 * s})`, opacity: fadeIn }}>
@@ -584,6 +584,7 @@ export function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; sce
     const decimals = /,\d{2}/.test(plain) ? 2 : 0;
     const shown = (num * prog).toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     const prefix = plain.match(/^[^\d]*/)?.[0] ?? "";
+    const suffix = plain.match(/\d[\d.,]*\s*(.*)$/)?.[1] ?? "";
     const R = 330 * u, dots = 36;
     return (
       <AbsoluteFill style={{ ...wrap, alignItems: "center" }}>
@@ -595,7 +596,7 @@ export function SceneView({ edl, scene, bg, index, total, dur }: { edl: Edl; sce
             return <div key={k} style={{ position: "absolute", left: R + Math.cos(a) * R - 9 * u, top: R + Math.sin(a) * R - 9 * u, width: 18 * u, height: 18 * u, borderRadius: 99, background: on ? pal.accent : "transparent", border: on ? undefined : `${2 * u}px solid ${pal.light ? "#bbb" : "#555"}`, boxShadow: on && !pal.light ? `0 0 ${14 * u}px ${pal.glow}` : undefined }} />;
           })}
           {scene.sub && <div style={{ fontSize: 46 * u, fontWeight: 600, color: pal.light ? "#333" : "#e5e5e5", opacity: fadeIn }}>{subText}</div>}
-          <div style={{ fontSize: size * 0.82, fontWeight: 900, color: pal.accent, textShadow: pal.light ? undefined : `0 0 ${30 * u}px ${pal.glow}`, whiteSpace: "nowrap" }}>{prefix}{shown}</div>
+          <div style={{ fontSize: size * 0.82, fontWeight: 900, color: pal.accent, textShadow: pal.light ? undefined : `0 0 ${30 * u}px ${pal.glow}`, whiteSpace: "nowrap" }}>{prefix}{shown}{suffix ? (/^[x%]/i.test(suffix) ? suffix : ` ${suffix}`) : ""}</div>
         </div>
       </AbsoluteFill>
     );

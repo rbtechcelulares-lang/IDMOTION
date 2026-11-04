@@ -62,7 +62,8 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
   const capZone: Zone = ZONE[clipAt(edl, t)?.captionPos ?? edl.captions.position];
   let txtZone: Zone = cap ? (capZone === "upper" ? "lower" : "upper") : capZone === "center" ? "lower" : capZone;
   if (txtZone === "upper" && priceOn) txtZone = "lower";
-  const showCap = !!cap && bodyOn && !(txt && txtZone === capZone) && !(priceOn && capZone === "upper");
+  const same = !!cap && !!txt && overlap(cap.text, txt.text) >= 0.5;
+  const showCap = !!cap && bodyOn && !same && !(txt && txtZone === capZone) && !(priceOn && capZone === "upper");
   const lowerBusy = bodyOn && ((showCap && capZone === "lower") || (!!txt && txtZone === "lower"));
   const upperBusy = bodyOn && ((showCap && capZone === "upper") || (!!txt && txtZone === "upper"));
   const keywords = new Set((edl.captions.keywords ?? []).map(norm));
@@ -109,7 +110,7 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
         return (
           <React.Fragment key={`card${i}`}>
             <Sequence from={from} durationInFrames={d}>
-              <Card edl={edl} bg={bg} texture={texture} durF={d} fadeIn={edl.preset === "cinematic" ? 8 : 0}
+              <Card edl={edl} bg={bg} texture={texture} durF={d} fadeIn={edl.preset === "cinematic" ? 8 : 0} boost={1.35}
                 scene={{ ...c.scene, text: c.scene.kind === "price" ? c.scene.text : autoMark(c.scene.text), icon: c.scene.icon ?? (c.scene.visual && c.scene.visual !== "none" ? undefined : emojiFor(c.scene.text)), layout: c.scene.layout ?? (c.scene.visual && c.scene.visual !== "none" ? "bottom" : "center") }} />
             </Sequence>
             {edl.preset !== "cinematic" && <Sequence from={Math.max(0, from - 6)} durationInFrames={14}><TransitionFx kind={i % 2 ? "wipe-rl" : "wipe-lr"} half={6} light={false} /></Sequence>}
@@ -126,6 +127,13 @@ type Zone = "upper" | "center" | "lower";
 const ZONE: Record<"top" | "center" | "bottom", Zone> = { top: "upper", center: "center", bottom: "lower" };
 const norm = (w: string) => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}$]/gu, "");
 
+/** Quanto das palavras de a aparece em b (0–1). */
+function overlap(a: string, b: string) {
+  const wa = a.split(/\s+/).map(norm).filter((w) => w.length > 1);
+  const wb = new Set(b.split(/\s+/).map(norm));
+  return wa.length ? wa.filter((w) => wb.has(w)).length / wa.length : 0;
+}
+
 /** Clipe que está na tela no segundo t da timeline (para saber onde a legenda vai). */
 function clipAt(edl: Edl, t: number) {
   let acc = 0;
@@ -134,13 +142,13 @@ function clipAt(edl: Edl, t: number) {
 }
 
 /** Cena de motion em tela cheia (abertura e chamada final) com fundo da biblioteca. */
-function Card({ edl, scene, bg, texture, durF, fadeIn = 0 }: { edl: Edl; scene: Partial<Scene> & { kind: Scene["kind"]; text: string; duration: number }; bg: Background; texture: NonNullable<Edl["motion"]>["theme"]["texture"]; durF: number; fadeIn?: number }) {
+function Card({ edl, scene, bg, texture, durF, fadeIn = 0, boost = 1 }: { boost?: number; edl: Edl; scene: Partial<Scene> & { kind: Scene["kind"]; text: string; duration: number }; bg: Background; texture: NonNullable<Edl["motion"]>["theme"]["texture"]; durF: number; fadeIn?: number }) {
   const frame = useCurrentFrame();
   const o = fadeIn ? interpolate(frame, [0, fadeIn], [0, 1], clamp) : 1;
   return (
     <AbsoluteFill style={{ opacity: o, background: INK }}>
       <BackgroundLayer bg={bg} texture={texture} preset={edl.preset} />
-      <SceneView edl={edl} scene={scene as Scene} bg={bg} index={0} total={1} dur={durF + 30} />
+      <SceneView edl={edl} scene={scene as Scene} bg={bg} index={0} total={1} dur={durF + 30} boost={boost} />
     </AbsoluteFill>
   );
 }
@@ -196,10 +204,10 @@ function Headline({ edl, text, local, dur, zone, karaoke, keywords, emoji, u }: 
           <Glyph name={emoji} size={130 * u} color={YELLOW} />
         </div>
       )}
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", columnGap: size * 0.26, rowGap: size * 0.08, maxWidth: "100%", fontSize: size, lineHeight: 1.08, fontWeight: preset === "cinematic" ? 600 : preset === "premium" ? 800 : 900, letterSpacing: preset === "cinematic" ? 1 : -1, textTransform: upper ? "uppercase" : "none", textAlign: "center" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", columnGap: size * 0.3, rowGap: size * 0.1, maxWidth: "100%", fontSize: size, lineHeight: 1.08, fontWeight: preset === "cinematic" ? 600 : preset === "premium" ? 800 : 900, letterSpacing: preset === "cinematic" ? 1 : -1, textTransform: upper ? "uppercase" : "none", textAlign: "center" }}>
         {toks.map((k, i) => {
           const d = Math.max(0, f - i * (preset === "viral" ? 2 : 3));
-          const s = spring({ frame: d, fps, config: { damping: preset === "viral" ? 11 : 15, stiffness: 210 } });
+          const s = Math.min(1, spring({ frame: d, fps, config: { damping: preset === "viral" ? 16 : 18, stiffness: 230 } }));
           const key = karaoke && !!keywords?.has(norm(k.w));
           const hi = karaoke ? i === active || key : k.hi;
           const enter: React.CSSProperties = preset === "viral"
