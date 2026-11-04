@@ -34,7 +34,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   const { silences, speech } = meta.hasAudio ? await detectSilences(src, meta.duration) : { silences: [], speech: [] };
   const lufs = meta.hasAudio ? await loudness(src) : null;
   await ctx.progress(0.5, "Extraindo frames", true);
-  const frames = await extractFrames(src, meta.duration, path.join(dir, "frames"));
+  const frames = await extractFrames(src, meta.duration, path.join(dir, "frames"), Math.min(12, Math.max(6, Math.round(meta.duration / 3)))); // ~1 quadro a cada 3s para a IA ver o enquadramento
   await Promise.all(frames.map((f) => store(f.file, "image/jpeg")));
 
   let words: Analysis["words"] = null;
@@ -55,7 +55,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   };
   await db.from("projects").update({ analysis }).eq("id", p.id);
 
-  const director = getDirector(p.ai);
+  const director = getDirector(p.ai, true);
   await ctx.progress(0.75, `AI Director (${director.name})`, true);
   const brief: Brief = { name: p.name, format: p.format, style: p.style, objective: p.objective, instructions: p.instructions, hasMusic: !!p.music_path, hasVideo: !!p.source_path };
   const jpegs = await Promise.all(frames.map(async (f) => ({ t: f.t, jpegBase64: (await fs.promises.readFile(f.file)).toString("base64") })));

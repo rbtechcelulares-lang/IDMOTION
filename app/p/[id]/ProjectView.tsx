@@ -93,6 +93,7 @@ export function ProjectView({ id }: { id: string }) {
             <Stat k="Transcrição" v={p.analysis.words ? `${p.analysis.words} palavras` : "não"} />
           </div>
         )}
+        {p.analysis && p.analysis.duration > 0 && !expired && <TranscriptPanel id={id} words={p.analysis.words} busy={busy || !!active} onRedo={() => post(`/api/projects/${id}/analyze`)} />}
 
         {edl && (
           <div className="rounded-2xl border border-line bg-panel p-4">
@@ -184,6 +185,47 @@ export function ProjectView({ id }: { id: string }) {
         </button>
       </aside>
     </main>
+  );
+}
+
+type TLine = { start: number; end: number; text: string };
+/** Botão "Transcrição": mostra a fala do vídeo com os tempos, copia o texto e baixa a legenda .srt. */
+function TranscriptPanel({ id, words, busy, onRedo }: { id: string; words: number; busy: boolean; onRedo: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<{ provider: string; lines: TLine[]; text: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next && !data) setData(await fetch(`/api/projects/${id}/transcript`).then((r) => r.json()).catch(() => null));
+  };
+  const copy = async () => { if (!data) return; await navigator.clipboard.writeText(data.text).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  return (
+    <div className="rounded-2xl border border-line bg-panel p-4">
+      <button className="btn-ghost w-full" onClick={toggle}>📝 {open ? "Fechar transcrição" : words ? `Ver transcrição (${words} palavras)` : "Transcrição"}</button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          {!data ? <p className="text-sm text-smoke">Carregando…</p> : data.lines.length ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-ghost" onClick={copy}>{copied ? "Copiado ✓" : "Copiar texto"}</button>
+                <a className="btn-ghost" href={`/api/projects/${id}/transcript?format=srt`}>Baixar legenda .srt</a>
+              </div>
+              <div className="max-h-80 space-y-1 overflow-y-auto rounded-lg bg-black/30 p-3 text-sm leading-relaxed">
+                {data.lines.map((l, i) => <p key={i}><span className="mr-2 font-mono text-xs text-volt">{mmss(l.start)}</span>{l.text}</p>)}
+              </div>
+              <p className="text-xs text-smoke">Transcrito por {data.provider}. A IA usa essa fala, palavra por palavra, para colocar legendas e motions no momento certo.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-smoke">Este vídeo ainda não tem transcrição (sem fala detectada, ou a chave da ElevenLabs não está configurada no motor: secret ELEVENLABS_API_KEY no GitHub).</p>
+              <button className="btn-ghost" disabled={busy} onClick={() => { if (confirm("Transcrever de novo refaz a análise e o plano do diretor (as edições do chat ficam no histórico). Continuar?")) onRedo(); }}>Transcrever de novo</button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

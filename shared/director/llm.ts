@@ -8,24 +8,37 @@ import type { Analysis, Brief, Director } from "./types";
 import { RBTECH_GUIDE } from "./knowledge";
 import { LIBRARY_DOC } from "../motion";
 
-const SCHEMA_DOC = `EDL JSON (tempos em segundos; clips usam o tempo do vídeo-fonte; overlays usam o tempo da timeline final):
+const SCHEMA_DOC = `Você edita um vídeo REAL (filmagem enviada). Trabalhe como um editor de reels experiente:
+PASSO 1 — ENTENDA: leia a fala inteira (palavra a palavra, com o segundo em que cada uma é dita) e olhe os quadros. Responda em "entendimento":
+  assunto, público, mensagem, momentos-chave (segundo + o que acontece) e, para cada trecho, ONDE está o que importa na imagem (rosto, produto, mãos).
+PASSO 2 — EDITE a partir disso. Responda SOMENTE com JSON:
 {
+ "entendimento": {"assunto": string, "publico": string, "mensagem": string, "momentos": string, "enquadramento": string},
  "format": "9:16"|"16:9"|"1:1"|"4:5",
  "preset": "cinematic"|"viral"|"premium",
- "clips": [{"in": number, "out": number, "speed": 0.5-2, "zoom": 1-1.6, "label"?: string}],
- "captions": {"enabled": boolean, "position": "bottom"|"center"|"top", "size": "sm"|"md"|"lg", "items": []},
+ "clips": [{"in": number, "out": number, "speed": 0.5-2, "zoom": 1-1.6, "label"?: string, "captionPos"?: "top"|"center"|"bottom"}],
+ "captions": {"enabled": boolean, "position": "bottom"|"center"|"top", "size": "sm"|"md"|"lg", "items": [], "keywords": [palavras ditas que merecem destaque]},
  "overlays": {
    "intro": {"text": string<=60, "sub"?: string, "duration": 0.5-6} | null,
-   "texts": [{"start","end","text"<=80,"position":"top"|"center"|"bottom"}],
-   "price": {"start","end","value": "R$ 4.299","label"?: string} | null,
+   "texts": [{"at": segundo DA FONTE em que a ideia é dita, "dur": 1-3, "text"<=80, "position":"top"|"center"|"bottom", "emoji"?: um emoji}],
+   "price": {"at": segundo DA FONTE em que o preço é dito, "dur": 1.5-3, "value": "R$ 4.299", "label"?: string} | null,
+   "cards": [{"at": segundo DA FONTE, "scene": {"kind":"title"|"feature"|"price"|"compare"|"counter"|"check","text":string<=90,"sub"?:string,"duration":1-3,"icon"?:string,"bg"?:fundo,"visual"?:"none"|"phones"|"phone"|"app","screen"?:string,"anim"?:string}}],
    "cta": {"text": string<=60, "sub"?: string, "duration": 1-8} | null
  },
- "audio": {"sourceVolume": 0-2, "music": {"volume": 0-1, "track": {"genre":"trap"|"pop"|"light","bpm":60-180,"shift":-6..6,"seed":1-9999} | null} | null, "narration": {"text": string, "voiceId"?: string, "volume": 0-2} | null, "normalize": true},
+ "audio": {"sourceVolume": 0-2, "music": {"volume": 0-1, "track": {"genre":"trap"|"pop"|"light","bpm":60-180,"shift":-6..6,"seed":1-9999} | null} | null, "narration": null, "normalize": true},
  "notes": string<=500
 }
-Regras: captions.items fica vazio (o sistema gera a partir da transcrição). Clipes em ordem narrativa, sem pausas, muletas ("é", "hum", "então") ou repetições. Não invente preço: use só o que estiver nas instruções/transcrição.
+COMO DECIDIR:
+- clips: tempo do vídeo-fonte. Ordem narrativa, sem pausas, muletas ("é", "hum", "então"), gaguejos ou repetições (fique com a melhor tomada). Zoom (punch-in 1.1-1.25) nos clips das frases fortes.
+- captionPos por clip: olhe o quadro mais próximo; a legenda vai onde NÃO cobre o rosto nem o produto (rosto em cima → "bottom"; produto/mãos embaixo → "top"; plano fechado no centro → "bottom").
+- captions.items fica vazio (o sistema gera da transcrição, sincronizado). keywords = preço, modelo, benefício, número, nome da loja, exatamente como ditos.
+- texts/price/cards: ancore no segundo exato em que a palavra é DITA (campo "at", tempo da fonte, dentro de um clip que você manteve). Nada aparece antes de ser falado.
+- cards = motion em tela cheia por cima da filmagem por 1-3s: use 0 a 4, só em momentos que ganham com isso (preço revelado, lista de benefícios, comparação, número). Não cubra o rosto enquanto a pessoa fala algo emocional.
+- texts = reforço curto do que está sendo dito (2-5 palavras), com emoji que combine. Não repita a legenda palavra por palavra.
+- Não invente preço nem fatos: use só a fala e as instruções.
 TRILHA: se hasMusic=true use {"volume":0.16-0.22,"track":null} (trilha enviada). Se hasMusic=false ESCOLHA uma trilha gerada: trap = energia/venda direta (130-150 bpm),
-pop = animado/lançamento/leve (98-114), light = premium/calmo/clean (80-92); volume 0.16-0.2 com fala; varie bpm/shift/seed a cada vídeo.`;
+pop = animado/lançamento/leve (98-114), light = premium/calmo/clean (80-92); volume 0.16-0.2 com fala; varie bpm/shift/seed a cada vídeo.
+${LIBRARY_DOC}`;
 
 const MOTION_DOC = `MODO 100% MOTION (sem vídeo-fonte).
 PASSO 1 — ENTENDA antes de criar. Leia o pedido inteiro como um diretor de arte leria e responda no campo "entendimento":
@@ -68,16 +81,17 @@ export function followsScreen(edl: Edl, screen: string[]): boolean {
 }
 
 function summarize(a: Analysis) {
-  const segs = a.speech.slice(0, 200).map((s) => {
-    const words = a.words?.filter((w) => w.start >= s.start - 0.2 && w.end <= s.end + 0.2).map((w) => w.text).join(" ");
-    return `[${s.start.toFixed(2)}-${s.end.toFixed(2)}] ${words ?? ""}`.trim();
+  // fala palavra a palavra com o segundo em que cada uma começa (tempo da fonte)
+  const lines = a.speech.slice(0, 200).map((s) => {
+    const ws = a.words?.filter((w) => w.start >= s.start - 0.2 && w.end <= s.end + 0.2) ?? [];
+    return ws.length ? `[${s.start.toFixed(2)}-${s.end.toFixed(2)}] ${ws.map((w) => `${w.text}@${w.start.toFixed(1)}`).join(" ")}` : `[${s.start.toFixed(2)}-${s.end.toFixed(2)}] (fala sem transcrição)`;
   });
   return [
     `duração ${a.duration.toFixed(2)}s, ${a.width}x${a.height}, ${a.fps.toFixed(0)}fps, áudio=${a.hasAudio}`,
     `cortes de cena: ${a.scenes.map((t) => t.toFixed(2)).join(", ") || "nenhum"}`,
-    `trechos de fala (${a.transcriptProvider}):`,
-    ...(segs.length ? segs : ["(sem fala detectada)"]),
-  ].join("\n");
+    `fala (${a.transcriptProvider}; palavra@segundo):`,
+    ...(lines.length ? lines : ["(sem fala detectada)"]),
+  ].join("\n").slice(0, 24000);
 }
 
 /** Sempre há trilha: a enviada (track null) ou uma gerada que combine (se a IA não escolheu). */
@@ -235,16 +249,19 @@ export class LlmDirector implements Director {
     }
     const system = `Você é o AI Director do ID MOTION, editor de vídeos curtos de venda. Responda SOMENTE com um JSON válido no formato abaixo.\n${SCHEMA_DOC}\n${STYLE_GUIDE}`;
     const content: Part[] = [
-      ...frames.slice(0, 6).flatMap((f): Part[] => [
+      ...frames.slice(0, 12).flatMap((f): Part[] => [
         { type: "text", text: `Frame em ${f.t.toFixed(1)}s:` },
         { type: "image", jpegBase64: f.jpegBase64 },
       ]),
-      { type: "text", text: `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções: ${b.instructions || "(nenhuma)"}\n\nANÁLISE\n${summarize(a)}\n\nGere o EDL.` },
+      { type: "text", text: `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções: ${b.instructions || "(nenhuma)"}\n\nANÁLISE\n${summarize(a)}\n\nPrimeiro entenda (campo "entendimento"), depois gere o EDL.` },
     ];
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const raw = extractJson(await this.ask(system, content)) as Record<string, unknown>;
-        return this.polishCaptions(withMusic(finalizeEdl({ ...raw, format: b.format }, a), b));
+        const edl = withMusic(finalizeEdl({ ...raw, format: b.format }, a), b);
+        const ent = raw.entendimento as Record<string, string> | undefined;
+        if (ent?.assunto) edl.notes = `Entendi: ${[ent.assunto, ent.momentos && `momentos: ${ent.momentos}`].filter(Boolean).join(" · ")}. ${edl.notes}`.slice(0, 500);
+        return this.polishCaptions(edl);
       } catch (e) {
         console.warn(`[director] tentativa ${attempt + 1} inválida:`, (e as Error).message);
         if (isTransportError(e)) break;

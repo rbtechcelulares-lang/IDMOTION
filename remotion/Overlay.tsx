@@ -49,15 +49,21 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
   const ctaStart = cta ? total - cta.duration : Infinity;
   const inIntro = t < introDur;
   const inCta = t >= ctaStart;
-  const bodyOn = !inIntro && !inCta;
+  const cards = edl.overlays.cards ?? [];
+  const inCard = cards.some((c) => t >= c.start && t < c.start + c.scene.duration);
+  const bodyOn = !inIntro && !inCta && !inCard;
 
   const cap = edl.captions.enabled ? edl.captions.items.find((c) => t >= c.start && t < c.end) : undefined;
   const txt = texts.find((x) => t >= x.start && t < x.end);
   const priceOn = !!price && t >= price.start && t < price.end && bodyOn;
-  // posição: legenda da fala embaixo; texto do roteiro embaixo, ou em cima quando há fala (e não há preço em cima)
-  const txtZone: Zone = cap && !priceOn ? "upper" : "lower";
-  const showCap = !!cap && bodyOn && !(txt && txtZone === "lower");
-  const lowerBusy = bodyOn && (showCap || (!!txt && txtZone === "lower"));
+  // legenda: no lugar que o diretor escolheu para ESTE trecho (longe do rosto/produto); texto de apoio no lado oposto
+  const capZone: Zone = ZONE[clipAt(edl, t)?.captionPos ?? edl.captions.position];
+  let txtZone: Zone = cap ? (capZone === "upper" ? "lower" : "upper") : capZone === "center" ? "lower" : capZone;
+  if (txtZone === "upper" && priceOn) txtZone = "lower";
+  const showCap = !!cap && bodyOn && !(txt && txtZone === capZone) && !(priceOn && capZone === "upper");
+  const lowerBusy = bodyOn && ((showCap && capZone === "lower") || (!!txt && txtZone === "lower"));
+  const upperBusy = bodyOn && ((showCap && capZone === "upper") || (!!txt && txtZone === "upper"));
+  const keywords = new Set((edl.captions.keywords ?? []).map(norm));
 
   const theme = edl.motion?.theme;
   const introBg: Background = theme?.bg ?? (edl.preset === "viral" ? "rays" : edl.preset === "premium" ? "glow" : "black");
@@ -70,9 +76,10 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
     <AbsoluteFill style={{ fontFamily: look.font, color: "white" }}>
       <Vignette strength={edl.preset === "cinematic" ? 0.5 : 0.32} />
       <Scrim on={lowerBusy} />
+      <Scrim on={upperBusy} top />
       {look.letterbox && <Letterbox height={height} />}
-      {showCap && cap && <Headline key={`c${cap.start}`} edl={edl} text={cap.text} local={t - cap.start} dur={cap.end - cap.start} zone="lower" karaoke u={u} />}
-      {txt && bodyOn && <Headline key={`t${txt.start}`} edl={edl} text={txt.text} local={t - txt.start} dur={txt.end - txt.start} zone={txtZone} u={u} emoji={emojiFor(txt.text)} />}
+      {showCap && cap && <Headline key={`c${cap.start}`} edl={edl} text={cap.text} local={t - cap.start} dur={cap.end - cap.start} zone={capZone} karaoke keywords={keywords} u={u} />}
+      {txt && bodyOn && <Headline key={`t${txt.start}`} edl={edl} text={txt.text} local={t - txt.start} dur={txt.end - txt.start} zone={txtZone} u={u} emoji={txt.emoji ?? emojiFor(txt.text)} />}
       {priceOn && price && <PriceSticker edl={edl} local={t - price.start} dur={price.end - price.start} u={u} />}
 
       {intro && introF > 0 && (
@@ -93,19 +100,42 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
       {cta && edl.preset !== "cinematic" && (
         <Sequence from={Math.max(0, ctaF - 8)} durationInFrames={18}><TransitionFx kind="wipe-rl" half={8} light={false} /></Sequence>
       )}
+      {cards.map((c, i) => {
+        const from = Math.round(c.start * fps), d = Math.round(c.scene.duration * fps);
+        const bg: Background = c.scene.bg ?? (c.scene.kind === "price" ? "rays" : edl.preset === "premium" ? "glow" : edl.preset === "cinematic" ? "black" : (["glow", "spotlight", "aurora"] as Background[])[i % 3]);
+        return (
+          <React.Fragment key={`card${i}`}>
+            <Sequence from={from} durationInFrames={d}>
+              <Card edl={edl} bg={bg} texture={texture} durF={d} fadeIn={edl.preset === "cinematic" ? 8 : 0}
+                scene={{ ...c.scene, text: c.scene.kind === "price" ? c.scene.text : autoMark(c.scene.text), icon: c.scene.icon ?? (c.scene.visual && c.scene.visual !== "none" ? undefined : emojiFor(c.scene.text)), layout: c.scene.layout ?? (c.scene.visual && c.scene.visual !== "none" ? "bottom" : "center") }} />
+            </Sequence>
+            {edl.preset !== "cinematic" && <Sequence from={Math.max(0, from - 6)} durationInFrames={14}><TransitionFx kind={i % 2 ? "wipe-rl" : "wipe-lr"} half={6} light={false} /></Sequence>}
+            {edl.preset !== "cinematic" && <Sequence from={Math.max(0, from + d - 6)} durationInFrames={14}><TransitionFx kind={i % 2 ? "wipe-lr" : "wipe-rl"} half={6} light={false} /></Sequence>}
+          </React.Fragment>
+        );
+      })}
       {priceOn && price && t - price.start < 0.2 && edl.preset !== "cinematic" && <Flash local={t - price.start} />}
     </AbsoluteFill>
   );
 };
 
-type Zone = "upper" | "lower";
+type Zone = "upper" | "center" | "lower";
+const ZONE: Record<"top" | "center" | "bottom", Zone> = { top: "upper", center: "center", bottom: "lower" };
+const norm = (w: string) => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}$]/gu, "");
+
+/** Clipe que está na tela no segundo t da timeline (para saber onde a legenda vai). */
+function clipAt(edl: Edl, t: number) {
+  let acc = 0;
+  for (const c of edl.clips) { const d = (c.out - c.in) / (c.speed || 1); if (t < acc + d) return c; acc += d; }
+  return edl.clips[edl.clips.length - 1];
+}
 
 /** Cena de motion em tela cheia (abertura e chamada final) com fundo da biblioteca. */
 function Card({ edl, scene, bg, texture, durF, fadeIn = 0 }: { edl: Edl; scene: Partial<Scene> & { kind: Scene["kind"]; text: string; duration: number }; bg: Background; texture: NonNullable<Edl["motion"]>["theme"]["texture"]; durF: number; fadeIn?: number }) {
   const frame = useCurrentFrame();
   const o = fadeIn ? interpolate(frame, [0, fadeIn], [0, 1], clamp) : 1;
   return (
-    <AbsoluteFill style={{ opacity: o }}>
+    <AbsoluteFill style={{ opacity: o, background: INK }}>
       <BackgroundLayer bg={bg} texture={texture} preset={edl.preset} />
       <SceneView edl={edl} scene={scene as Scene} bg={bg} index={0} total={1} dur={durF + 30} />
     </AbsoluteFill>
@@ -117,9 +147,9 @@ const Vignette: React.FC<{ strength: number }> = ({ strength }) => (
 );
 
 /** Escurece o terço de baixo enquanto há texto ali (leitura em qualquer filmagem). */
-function Scrim({ on }: { on: boolean }) {
+function Scrim({ on, top }: { on: boolean; top?: boolean }) {
   if (!on) return null;
-  return <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(0,0,0,.62) 0%, rgba(0,0,0,.35) 26%, transparent 48%)" }} />;
+  return <AbsoluteFill style={{ background: `linear-gradient(to ${top ? "bottom" : "top"}, rgba(0,0,0,.62) 0%, rgba(0,0,0,.35) 26%, transparent 48%)` }} />;
 }
 
 function Flash({ local }: { local: number }) {
@@ -142,7 +172,7 @@ const Letterbox: React.FC<{ height: number }> = ({ height }) => {
  * Texto grande sobre a filmagem (legenda da fala ou texto do roteiro): palavra a palavra, destaque em amarelo,
  * contorno para ler em qualquer fundo e tamanho calculado para caber na largura.
  */
-function Headline({ edl, text, local, dur, zone, karaoke, emoji, u }: { edl: Edl; text: string; local: number; dur: number; zone: Zone; karaoke?: boolean; emoji?: string; u: number }) {
+function Headline({ edl, text, local, dur, zone, karaoke, keywords, emoji, u }: { edl: Edl; text: string; local: number; dur: number; zone: Zone; karaoke?: boolean; keywords?: Set<string>; emoji?: string; u: number }) {
   const { fps, width, height } = useVideoConfig();
   const preset = edl.preset;
   const f = Math.round(local * fps);
@@ -153,11 +183,11 @@ function Headline({ edl, text, local, dur, zone, karaoke, emoji, u }: { edl: Edl
   const size = Math.min(cap, (width * 0.86) / (longest * (upper ? 0.7 : 0.6)));
   const out = interpolate(dur - local, [0, 0.18], [0, 1], clamp);
   const active = karaoke ? Math.min(toks.length - 1, Math.floor(local / (dur / toks.length))) : -1;
-  const pad = zone === "lower" ? { paddingBottom: height * 0.19 } : { paddingTop: height * 0.17 };
+  const pad = zone === "lower" ? { paddingBottom: height * 0.19 } : zone === "upper" ? { paddingTop: height * 0.15 } : {};
   const es = spring({ frame: f, fps, config: { damping: 10, stiffness: 180 } });
 
   return (
-    <AbsoluteFill style={{ justifyContent: zone === "lower" ? "flex-end" : "flex-start", alignItems: "center", padding: `0 ${60 * u}px`, ...pad, opacity: out, transform: `scale(${0.94 + 0.06 * out})` }}>
+    <AbsoluteFill style={{ justifyContent: zone === "lower" ? "flex-end" : zone === "upper" ? "flex-start" : "center", alignItems: "center", padding: `0 ${60 * u}px`, ...pad, opacity: out, transform: `scale(${0.94 + 0.06 * out})` }}>
       {emoji && (
         <div style={{ lineHeight: 1, marginBottom: 14 * u, transform: `scale(${es}) rotate(${Math.sin(local * 5) * 7}deg)`, filter: `drop-shadow(0 ${6 * u}px ${10 * u}px rgba(0,0,0,.5))` }}>
           <Glyph name={emoji} size={130 * u} color={YELLOW} />
@@ -167,13 +197,14 @@ function Headline({ edl, text, local, dur, zone, karaoke, emoji, u }: { edl: Edl
         {toks.map((k, i) => {
           const d = Math.max(0, f - i * (preset === "viral" ? 2 : 3));
           const s = spring({ frame: d, fps, config: { damping: preset === "viral" ? 11 : 15, stiffness: 210 } });
-          const hi = karaoke ? i === active : k.hi;
+          const key = karaoke && !!keywords?.has(norm(k.w));
+          const hi = karaoke ? i === active || key : k.hi;
           const enter: React.CSSProperties = preset === "viral"
             ? { transform: `translateY(${(1 - s) * 50 * u}px) scale(${0.6 + 0.4 * s}) rotate(${hi ? -2 : 0}deg)`, opacity: Math.min(1, s * 2.2) }
             : preset === "premium"
               ? { transform: `translateY(${(1 - s) * 26 * u}px)`, opacity: Math.min(1, d / 5), filter: `blur(${interpolate(d, [0, 7], [8, 0], clamp)}px)` }
               : { transform: `translateY(${(1 - s) * 18 * u}px)`, opacity: Math.min(1, d / 8) };
-          const box = hi && preset === "viral" && !karaoke;
+          const box = preset === "viral" && (karaoke ? key : hi);
           return (
             <span key={i} style={{
               display: "inline-block", ...enter,

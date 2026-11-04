@@ -9,6 +9,7 @@ export const ClipSchema = z.object({
   speed: z.number().min(0.5).max(2).default(1),
   zoom: z.number().min(1).max(1.6).default(1), // punch-in
   label: z.string().max(80).optional(),
+  captionPos: z.enum(["top", "center", "bottom"]).optional(), // onde a legenda fica neste trecho (longe do rosto/produto)
 }).refine((c) => c.out > c.in + 0.1, { message: "clip.out deve ser maior que clip.in" });
 
 const Timed = { start: z.number().min(0), end: z.number().positive() };
@@ -52,11 +53,15 @@ export const EdlSchema = z.object({
     position: z.enum(["bottom", "center", "top"]).default("bottom"),
     size: z.enum(["sm", "md", "lg"]).default("md"),
     items: z.array(CaptionSchema).max(1000).default([]),
+    keywords: z.array(z.string().max(30)).max(40).default([]), // palavras da fala que ganham destaque (preço, modelo, benefício)
   }),
   overlays: z.object({
     intro: z.object({ text: z.string().min(1).max(60), sub: z.string().max(80).optional(), duration: z.number().min(0.5).max(6).default(2.2) }).nullable().default(null),
-    texts: z.array(z.object({ ...Timed, text: z.string().min(1).max(80), position: z.enum(["top", "center", "bottom"]).default("top") })).max(50).default([]),
-    price: z.object({ ...Timed, value: z.string().min(1).max(30), label: z.string().max(40).optional() }).nullable().default(null),
+    // "at" = segundo do VÍDEO-FONTE em que a palavra é dita; o sistema converte para a timeline (start/end)
+    texts: z.array(z.object({ ...Timed, at: z.number().min(0).optional(), text: z.string().min(1).max(80), position: z.enum(["top", "center", "bottom"]).default("top"), emoji: z.string().max(16).optional() })).max(50).default([]),
+    price: z.object({ ...Timed, at: z.number().min(0).optional(), value: z.string().min(1).max(30), label: z.string().max(40).optional() }).nullable().default(null),
+    // cards de motion em TELA CHEIA por cima da filmagem, nos momentos-chave da fala
+    cards: z.array(z.object({ start: z.number().min(0).default(0), at: z.number().min(0).optional(), scene: MotionSceneSchema })).max(10).default([]),
     cta: z.object({ text: z.string().min(1).max(60), sub: z.string().max(80).optional(), duration: z.number().min(1).max(8).default(3) }).nullable().default(null),
   }),
   audio: z.object({
@@ -98,10 +103,32 @@ export function normalizeEdl(input: unknown, sourceDuration: number): Edl {
   edl.captions.items = clampT(edl.captions.items);
   edl.overlays.texts = clampT(edl.overlays.texts);
   if (edl.overlays.price) edl.overlays.price = clampT([edl.overlays.price])[0] ?? null;
+  // cards: dentro da timeline, sem sobrepor abertura/CTA nem uns aos outros
+  const introEnd = edl.overlays.intro ? Math.min(edl.overlays.intro.duration, 2.4) : 0;
+  const ctaStart = edl.overlays.cta ? total - edl.overlays.cta.duration : total;
+  let last = introEnd;
+  edl.overlays.cards = [...edl.overlays.cards].sort((a, b) => a.start - b.start).filter((c) => {
+    const d = Math.min(c.scene.duration, 4);
+    if (c.start < last || c.start + d > ctaStart) return false;
+    c.scene.duration = d;
+    last = c.start + d;
+    return true;
+  });
   return edl;
 }
 
 export type Word = { text: string; start: number; end: number };
+
+/** Segundo do vídeo-fonte → segundo da timeline (null se esse trecho foi cortado). */
+export function srcToTimeline(t: number, clips: { in: number; out: number; speed?: number }[]): number | null {
+  let offset = 0;
+  for (const c of clips) {
+    const sp = c.speed || 1;
+    if (t >= c.in - 0.05 && t < c.out) return offset + Math.max(0, t - c.in) / sp;
+    offset += (c.out - c.in) / sp;
+  }
+  return null;
+}
 
 /** Converte palavras (tempo da fonte) para o tempo da timeline, considerando cortes e velocidade. */
 export function mapWordsToTimeline(words: Word[], clips: Clip[]): Word[] {

@@ -39,3 +39,23 @@ test("briefing com 'Textos na tela:': só as linhas de tela viram cenas", () => 
   assert.ok(followsScreen(edl, screen));
   assert.ok(!followsScreen({ ...edl, motion: { ...edl.motion!, scenes: [{ ...scenes[0], text: "Público: donos de assistência" }, ...scenes.slice(0, 5)] } }, screen));
 });
+
+test("vídeo real: textos/preço/cards ancorados na palavra falada viram tempo da timeline", async () => {
+  const { finalizeEdl } = await import("../shared/director/finalize");
+  const a = { duration: 30, width: 1080, height: 1920, fps: 30, hasAudio: true, scenes: [], silences: [], speech: [], words: [], transcript: "", transcriptProvider: "t", frames: [], loudnessLufs: null };
+  const raw = { mode: "video", format: "9:16", preset: "viral",
+    clips: [{ in: 2, out: 6, captionPos: "top" }, { in: 10, out: 14 }],
+    captions: { items: [], keywords: ["R$", "garantia"] },
+    overlays: { texts: [{ at: 11, dur: 2, text: "Garantia de 1 ano", emoji: "🛡️" }, { at: 8, dur: 2, text: "cortado" }],
+      price: { at: 12.5, dur: 2, value: "R$ 4.299" },
+      cards: [{ at: 3, scene: { kind: "check", text: "Bateria 100%", duration: 2 } }] },
+    audio: {} };
+  const edl = finalizeEdl(raw, a as never);
+  assert.equal(edl.overlays.texts.length, 1);
+  assert.equal(edl.overlays.texts[0].start, 5); // 4s do 1º clip + 1s
+  assert.equal(edl.overlays.texts[0].emoji, "🛡️");
+  assert.equal(edl.overlays.price?.start, 6.5);
+  assert.equal(edl.overlays.cards[0].start, 1);
+  assert.equal(edl.clips[0].captionPos, "top");
+  assert.deepEqual(edl.captions.keywords, ["R$", "garantia"]);
+});

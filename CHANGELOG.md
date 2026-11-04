@@ -118,3 +118,11 @@
 - A IA não recebe mais o rascunho das regras: primeiro escreve o que entendeu (assunto, público, mensagem, visuais) e depois cria as cenas; o entendimento aparece nas notas do projeto.
 - Guia RBTech só vale para vídeos da RBTech; outras marcas usam só as técnicas de ritmo e motion.
 - Novo visual "app": celular com a tela de um sistema (OS, cotação, metas, lucro, vitrine, WhatsApp, estoque, painel), escolhido pela IA.
+
+## Transcrição + diretor de vídeo real mais inteligente
+- Botão "Transcrição" no projeto: fala com tempos, copiar texto, baixar .srt; "Transcrever de novo" se faltou.
+- Vídeo real: IA vê ~1 quadro a cada 3s (até 12) e a fala palavra@segundo; primeiro descreve o que entendeu (momentos-chave e enquadramento).
+- Legenda muda de lugar por trecho (captionPos) para não cobrir rosto/produto; palavras-chave da fala com destaque.
+- Textos, preço e cards ancorados no segundo em que a palavra é dita (convertido para a timeline após os cortes).
+- Cards de motion em tela cheia nos momentos-chave, com varredura e efeitos sonoros.
+- Automático em vídeo real: Opus primeiro (se houver chave Anthropic), depois Gemini.

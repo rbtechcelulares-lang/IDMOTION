@@ -9,7 +9,7 @@ export { COMMAND_HELP } from "./commands";
 export const AI_CHOICES = ["auto", "gemini", "opus", "haiku", "rules"] as const;
 export type AiChoice = (typeof AI_CHOICES)[number];
 export const AI_LABEL: Record<AiChoice, string> = {
-  auto: "Automático (Gemini → Claude → regras)",
+  auto: "Automático (vídeo real: Opus → Gemini · motion: Gemini → Claude)",
   gemini: "Gemini (grátis)",
   opus: "Claude Opus 5.5 (melhor, pago por uso)",
   haiku: "Claude Haiku 5.5 (econômico, pago por uso)",
@@ -28,7 +28,7 @@ function geminiAsker(): Asker | null {
  * Escolhe o cérebro criativo do projeto. Corrente de reserva: se o Opus falhar (sem crédito, limite, sobrecarga),
  * desce para o Haiku, depois para o Gemini; se nada responder, o diretor por regras faz o plano.
  */
-export function getDirector(choice: string = "auto"): Director {
+export function getDirector(choice: string = "auto", video = false): Director {
   const env = process.env;
   const key = env.ANTHROPIC_API_KEY?.trim();
   const gem = geminiAsker();
@@ -41,7 +41,10 @@ export function getDirector(choice: string = "auto"): Director {
     : pick === "opus" ? [opus, haiku, gem]
     : pick === "haiku" ? [haiku, gem]
     : pick === "gemini" ? [gem, haiku]
-    : env.AI_PROVIDER === "anthropic" ? [opus, haiku, gem] : [gem, compat, haiku];
+    : env.AI_PROVIDER === "anthropic" ? [opus, haiku, gem]
+    // vídeo real pede o cérebro mais forte (enxerga os quadros e a fala palavra a palavra): Opus primeiro, se houver chave
+    : video ? [opus, gem, compat, haiku]
+    : [gem, compat, haiku];
   const askers = chain.filter((x): x is Asker => !!x);
   return askers.length ? new LlmDirector(chainAskers(askers)) : new HeuristicDirector();
 }
