@@ -8,6 +8,7 @@ export const CAPTION_WORDS = { viral: 3, premium: 5, cinematic: 6 } as const;
 export function finalizeEdl(raw: unknown, a: Analysis): Edl {
   const edl = normalizeEdl(anchorToSource(raw), a.duration);
   if (edl.mode === "video") edl.clips = punchClips(snapToWords(edl.clips, a.words ?? [], a.duration), edl.preset, a.words ?? []);
+  if (edl.mode === "video" && a.words?.length && edl.captions.enabled) dedupeTexts(edl, a.words);
   if (edl.mode === "video" && a.words?.length) {
     edl.captions.items = wordsToCaptions(mapWordsToTimeline(a.words, edl.clips), CAPTION_WORDS[edl.preset]);
   }
@@ -115,4 +116,25 @@ export function anchorToSource(input: unknown): unknown {
     return t === null ? null : { scene: c.scene, start: +t.toFixed(2) };
   }).filter(Boolean);
   return { ...raw, overlays: o };
+}
+
+const nw = (w: string) => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}$]/gu, "");
+const STOP = new Set(["de", "da", "do", "das", "dos", "e", "o", "a", "os", "as", "em", "no", "na", "nos", "nas", "com", "por", "para", "pra", "um", "uma", "que", "seu", "sua"]);
+
+/**
+ * Texto de apoio que só repete o que está sendo FALADO (e já aparece na legenda) é duplicação:
+ * sai da tela e as palavras fortes dele viram destaque na própria legenda.
+ */
+export function dedupeTexts(edl: Edl, words: { text: string; start: number; end: number }[]) {
+  const spoken = mapWordsToTimeline(words, edl.clips);
+  const kw = new Set(edl.captions.keywords);
+  edl.overlays.texts = edl.overlays.texts.filter((t) => {
+    const tw = t.text.split(/\s+/).map(nw).filter((w) => w.length > 1 && !STOP.has(w));
+    if (!tw.length) return true;
+    const near = new Set(spoken.filter((w) => w.end >= t.start - 2 && w.start <= t.end + 2).map((w) => nw(w.text)));
+    const dup = tw.filter((w) => near.has(w)).length / tw.length >= 0.6;
+    if (dup) for (const w of t.text.split(/\s+/)) if (w.length > 2 && !STOP.has(nw(w))) kw.add(w.replace(/[.,!?;:]+$/, ""));
+    return !dup;
+  });
+  edl.captions.keywords = [...kw].slice(0, 40);
 }

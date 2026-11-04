@@ -90,3 +90,15 @@ test("cortes: borda nunca no meio da palavra e jump zoom só nas pausas", async 
   for (const p of pieces.slice(1)) assert.ok(!inWord(p.in), `corte em ${p.in} cai dentro de palavra`);
   assert.ok(pieces.some((p) => Math.abs(p.in - 4.175) < 0.03), "preferiu o fim da frase");
 });
+
+test("texto de apoio que repete a fala sai da tela e vira destaque na legenda", async () => {
+  const { finalizeEdl } = await import("../shared/director/finalize");
+  const said = "aqui você tem até seis meses de garantia em todos os aparelhos".split(" ");
+  const words = said.map((w, i) => ({ text: w, start: 1 + i * 0.3, end: 1.25 + i * 0.3 }));
+  const a = { duration: 10, width: 1080, height: 1920, fps: 30, hasAudio: true, scenes: [], silences: [], speech: [{ start: 1, end: 5 }], words, transcript: said.join(" "), transcriptProvider: "t", frames: [], loudnessLufs: null };
+  const raw = { mode: "video", format: "9:16", preset: "viral", clips: [{ in: 0, out: 6 }], captions: { items: [] },
+    overlays: { texts: [{ at: 2, dur: 2, text: "Até 6 meses de garantia" }, { at: 3, dur: 2, text: "Loja física em Floripa" }] }, audio: {} };
+  const edl = finalizeEdl(raw, a as never);
+  assert.deepEqual(edl.overlays.texts.map((t) => t.text), ["Loja física em Floripa"]);
+  assert.ok(edl.captions.keywords.includes("garantia"));
+});

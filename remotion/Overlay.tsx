@@ -62,7 +62,7 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
   const capZone: Zone = ZONE[clipAt(edl, t)?.captionPos ?? edl.captions.position];
   let txtZone: Zone = cap ? (capZone === "upper" ? "lower" : "upper") : capZone === "center" ? "lower" : capZone;
   if (txtZone === "upper" && priceOn) txtZone = "lower";
-  const same = !!cap && !!txt && overlap(cap.text, txt.text) >= 0.5;
+  const same = !!cap && !!txt && overlap(cap.text, txt.text) >= 0.34; // texto de apoio já diz parte da frase → só ele aparece
   const showCap = !!cap && bodyOn && !same && !(txt && txtZone === capZone) && !(priceOn && capZone === "upper");
   const lowerBusy = bodyOn && ((showCap && capZone === "lower") || (!!txt && txtZone === "lower"));
   const upperBusy = bodyOn && ((showCap && capZone === "upper") || (!!txt && txtZone === "upper"));

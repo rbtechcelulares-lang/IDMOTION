@@ -137,3 +137,4 @@
 - Legenda: palavras não invadem a vizinha (sem estouro de escala na entrada) e espaço maior; some quando o texto de apoio já diz a mesma frase.
 - Cards sobre a filmagem 35% maiores; contador mantém "x"/"%"/sufixo ("Até 24x").
 - Cortes: borda do clipe nunca no meio de palavra; jump zoom só troca nas pausas da fala (de preferência fim de frase).
+- Sem duplicação legenda × texto de apoio: texto que só repete a fala é descartado no plano (as palavras dele viram destaque na legenda); na montagem, a legenda some quando o texto de apoio já diz parte da frase.
