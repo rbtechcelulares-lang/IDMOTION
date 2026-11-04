@@ -172,9 +172,10 @@ export function applyCommands(input: Edl, instruction: string, a: Analysis): { e
   if (/com legenda|liga\w* (a )?legenda/.test(low)) { edl.captions.enabled = true; done.push("legendas ligadas"); }
   if (/legenda\w* maior/.test(low)) { edl.captions.size = edl.captions.size === "sm" ? "md" : "lg"; done.push(`legenda ${edl.captions.size}`); }
   if (/legenda\w* menor/.test(low)) { edl.captions.size = edl.captions.size === "lg" ? "md" : "sm"; done.push(`legenda ${edl.captions.size}`); }
-  if (/legenda\w* (no )?(centro|meio)/.test(low)) { edl.captions.position = "center"; done.push("legenda no centro"); }
-  if (/legenda\w* (embaixo|em baixo|abaixo|no rodap[eé])/.test(low)) { edl.captions.position = "bottom"; done.push("legenda embaixo"); }
-  if (/legenda\w* (em cima|no topo|acima)/.test(low)) { edl.captions.position = "top"; done.push("legenda em cima"); }
+  if (/legenda\w* (no )?(centro|meio)/.test(low)) { edl.captions.position = "center"; edl.captions.place = "auto"; edl.clips.forEach((c) => (c.captionPos = "center")); done.push("legenda no centro"); }
+  if (/legenda\w* autom[aá]tica/.test(low)) { edl.captions.place = "auto"; done.push("legenda automática"); }
+  if (/legenda\w* (embaixo|em baixo|abaixo|no rodap[eé])/.test(low)) { edl.captions.position = "bottom"; edl.captions.place = "bottom"; done.push("legenda embaixo"); }
+  if (/legenda\w* (em cima|no topo|acima)/.test(low)) { edl.captions.position = "top"; edl.captions.place = "top"; done.push("legenda em cima"); }
 
   const isMotion = edl.mode === "motion";
   const cur = edl.audio.music;

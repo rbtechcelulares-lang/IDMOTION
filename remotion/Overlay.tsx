@@ -59,7 +59,8 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
   const txt = texts.find((x) => t >= x.start && t < x.end);
   const priceOn = !!price && t >= price.start && t < price.end && bodyOn;
   // legenda: no lugar que o diretor escolheu para ESTE trecho (longe do rosto/produto); texto de apoio no lado oposto
-  const capZone: Zone = ZONE[clipAt(edl, t)?.captionPos ?? edl.captions.position];
+  const place = edl.captions.place ?? "auto";
+  const capZone: Zone = place !== "auto" ? ZONE[place] : ZONE[clipAt(edl, t)?.captionPos ?? edl.captions.position];
   let txtZone: Zone = cap ? (capZone === "upper" ? "lower" : "upper") : capZone === "center" ? "lower" : capZone;
   if (txtZone === "upper" && priceOn) txtZone = "lower";
   const same = !!cap && !!txt && overlap(cap.text, txt.text) >= 0.34; // texto de apoio já diz parte da frase → só ele aparece

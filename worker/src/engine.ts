@@ -158,3 +158,29 @@ export async function buildMotionBase(edl: Edl, inp: { music?: string | null; na
   if (edl.audio.normalize && mix[0] !== "[sil]") await fixLoudness(out);
   return total;
 }
+
+/**
+ * Faixa só com a FALA do vídeo final (mesmos cortes e velocidades da montagem, sem trilha/efeitos/narração),
+ * em mp3 16 kHz mono — é o que vai para a transcrição das legendas.
+ */
+export async function buildSpeechTrack(edl: Edl, source: string, out: string) {
+  const args = ["-y", "-hide_banner", "-loglevel", "error"];
+  const f: string[] = [];
+  const groups: { in: number; out: number; speed: number; len: number }[] = [];
+  for (const c of edl.clips) {
+    const g = groups[groups.length - 1];
+    const sp = c.speed || 1;
+    if (g && Math.abs(c.in - g.out) < 0.02 && sp === g.speed) { g.out = c.out; g.len += (c.out - c.in) / sp; }
+    else groups.push({ in: c.in, out: c.out, speed: sp, len: (c.out - c.in) / sp });
+  }
+  groups.forEach((g, i) => {
+    args.push("-ss", f3(g.in), "-t", f3(g.out - g.in), "-i", source);
+    // mesma duração em quadros da montagem (para a legenda não escorregar ao longo do vídeo)
+    const d = Math.max(1, Math.round(g.len * edl.fps)) / edl.fps;
+    f.push(`[${i}:a]asetpts=PTS-STARTPTS,atempo=${g.speed},aformat=sample_rates=16000:channel_layouts=mono,apad,atrim=0:${f3(d)},asetpts=PTS-STARTPTS[a${i}]`);
+  });
+  f.push(`${groups.map((_, i) => `[a${i}]`).join("")}concat=n=${groups.length}:v=0:a=1[aout]`);
+  args.push("-filter_complex", f.join(";"), "-map", "[aout]", "-c:a", "libmp3lame", "-b:a", "64k", out);
+  await run(FFMPEG, args);
+  return out;
+}

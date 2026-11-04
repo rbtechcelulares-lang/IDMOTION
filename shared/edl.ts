@@ -56,7 +56,8 @@ export const EdlSchema = z.object({
     position: z.enum(["bottom", "center", "top"]).default("bottom"),
     size: z.enum(["sm", "md", "lg"]).default("md"),
     items: z.array(CaptionSchema).max(1000).default([]),
-    keywords: z.array(txt(30)).max(40).default([]), // palavras da fala que ganham destaque (preço, modelo, benefício)
+    keywords: z.array(txt(30)).max(40).default([]),
+    place: z.enum(["auto", "top", "bottom"]).default("auto"), // escolha do usuário: auto = o diretor decide por trecho // palavras da fala que ganham destaque (preço, modelo, benefício)
   }),
   overlays: z.object({
     intro: z.object({ text: z.string().min(1).pipe(txt(60)), sub: txt(80).optional(), duration: z.number().min(0.5).max(6).default(2.2) }).nullable().default(null),

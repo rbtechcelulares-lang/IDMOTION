@@ -154,6 +154,7 @@ export function ProjectView({ id }: { id: string }) {
           )}
         </div>
 
+        {edl && !expired && edl.mode === "video" && edl.captions.enabled && <CaptionPlace id={id} edl={edl} disabled={busy || !!active} onChange={load} />}
         {edl && !expired && <NarrationPanel id={id} edl={edl} disabled={busy || !!active} onChange={load} />}
 
         <div className="flex h-[520px] flex-col rounded-2xl border border-line bg-panel">
@@ -185,6 +186,32 @@ export function ProjectView({ id }: { id: string }) {
         </button>
       </aside>
     </main>
+  );
+}
+
+/** Botões de posição da legenda: Automático (o diretor escolhe por trecho), Em cima, Embaixo. */
+function CaptionPlace({ id, edl, disabled, onChange }: { id: string; edl: Edl; disabled: boolean; onChange: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const cur = edl.captions.place ?? "auto";
+  const pick = async (place: "auto" | "top" | "bottom") => {
+    if (place === cur) return;
+    setSaving(true);
+    const r = await fetch(`/api/projects/${id}/captions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ place }) });
+    setSaving(false);
+    if (!r.ok) alert((await r.json().catch(() => ({}))).error ?? "Não foi possível salvar");
+    onChange();
+  };
+  const opts = [["auto", "Automático"], ["top", "⬆ Em cima"], ["bottom", "⬇ Embaixo"]] as const;
+  return (
+    <div className="rounded-2xl border border-line bg-panel p-4">
+      <h2 className="label">Posição da legenda</h2>
+      <div className="grid grid-cols-3 gap-2">
+        {opts.map(([v, l]) => (
+          <button key={v} disabled={disabled || saving} onClick={() => pick(v)} className={`rounded-lg border px-2 py-2 text-sm font-semibold ${cur === v ? "border-volt bg-volt text-black" : "border-line text-paper"}`}>{l}</button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-smoke">{cur === "auto" ? "O diretor coloca a legenda onde não cobre o rosto nem o produto, trecho a trecho." : "Todas as legendas ficam nessa posição. Exporte para ver."}</p>
+    </div>
   );
 }
 

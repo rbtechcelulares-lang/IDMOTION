@@ -138,3 +138,7 @@
 - Cards sobre a filmagem 35% maiores; contador mantém "x"/"%"/sufixo ("Até 24x").
 - Cortes: borda do clipe nunca no meio de palavra; jump zoom só troca nas pausas da fala (de preferência fim de frase).
 - Sem duplicação legenda × texto de apoio: texto que só repete a fala é descartado no plano (as palavras dele viram destaque na legenda); na montagem, a legenda some quando o texto de apoio já diz parte da frase.
+
+## Posição da legenda + legendas do vídeo final
+- Botões "Posição da legenda": Automático (diretor escolhe por trecho), Em cima, Embaixo — também pelo chat ("legenda em cima", "legenda automática").
+- Na exportação, depois dos cortes, o motor transcreve a fala do vídeo já montado e gera as legendas dela (tempo exato do vídeo final). Se falhar, usa as legendas do plano e avisa nas notas.

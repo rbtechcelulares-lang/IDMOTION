@@ -2,7 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { EdlSchema } from "../../shared/edl";
 import { Cancelled, db, projectDir } from "./env";
-import { buildBase, buildMotionBase } from "./engine";
+import { buildBase, buildMotionBase, buildSpeechTrack } from "./engine";
+import { getTranscriber } from "./transcribe";
+import { CAPTION_WORDS } from "../../shared/director/finalize";
+import { fixCaption, newReport } from "../../shared/director/textfix";
+import { wordsToCaptions } from "../../shared/edl";
 import { synthTrack, writeWav } from "./music";
 import { renderSfx } from "./sfx";
 import { planSfx } from "../../shared/director/sfx-plan";
@@ -111,6 +115,22 @@ export async function runRender(job: Job, ctx: JobCtx) {
   } else {
     if (!p.source_path) throw Object.assign(new Error("projeto sem vídeo"), { fatal: true });
     const source = await guard(() => ensureLocal(p.source_path));
+    // legendas feitas DEPOIS dos cortes: transcreve a fala do vídeo final (tempo exato da timeline montada)
+    if (edl.captions.enabled && p.analysis?.hasAudio) {
+      const tr = getTranscriber();
+      if (tr) {
+        await prog(0.04, "Transcrevendo o vídeo cortado (legendas)");
+        try {
+          const words = await tr.transcribe(await buildSpeechTrack(edl, source, path.join(dir, "fala.mp3")));
+          const rep = newReport();
+          const items = wordsToCaptions(words, CAPTION_WORDS[edl.preset]).map((c) => ({ ...c, text: fixCaption(c.text, rep) })).filter((c) => c.text);
+          if (items.length) { edl.captions.items = items; notes.push(`Legendas: transcritas do vídeo final (${tr.name}, ${words.length} palavras).`); }
+          else notes.push("Legendas: nenhuma fala no vídeo final; mantidas as do plano.");
+        } catch (e) {
+          notes.push(`Legendas: transcrição do vídeo final falhou (${(e as Error).message.slice(0, 120)}); usadas as do plano.`);
+        }
+      }
+    }
     duration = await guard(() => buildBase(edl, { source, hasAudio: !!p.analysis?.hasAudio, music, narration, sfx }, base, (x) => prog(0.05 + x * 0.35, "Cortes, formato e mixagem (FFmpeg)"), hasOverlay(edl)));
   }
 
