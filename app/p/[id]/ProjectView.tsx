@@ -192,7 +192,7 @@ type TLine = { start: number; end: number; text: string };
 /** Botão "Transcrição": mostra a fala do vídeo com os tempos, copia o texto e baixa a legenda .srt. */
 function TranscriptPanel({ id, words, busy, onRedo }: { id: string; words: number; busy: boolean; onRedo: () => void }) {
   const [open, setOpen] = useState(false);
-  const [data, setData] = useState<{ provider: string; lines: TLine[]; text: string } | null>(null);
+  const [data, setData] = useState<{ provider: string; lines: TLine[]; text: string; error: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
   const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
   const toggle = async () => {
@@ -215,11 +215,13 @@ function TranscriptPanel({ id, words, busy, onRedo }: { id: string; words: numbe
               <div className="max-h-80 space-y-1 overflow-y-auto rounded-lg bg-black/30 p-3 text-sm leading-relaxed">
                 {data.lines.map((l, i) => <p key={i}><span className="mr-2 font-mono text-xs text-volt">{mmss(l.start)}</span>{l.text}</p>)}
               </div>
-              <p className="text-xs text-smoke">Transcrito por {data.provider}. A IA usa essa fala, palavra por palavra, para colocar legendas e motions no momento certo.</p>
+              {data.error && <p className="text-xs text-smoke">Aviso: {data.error}</p>}
+              <p className="text-xs text-smoke">Transcrito por {data.provider}{data.provider === "gemini" ? " (tempo por frase)" : ""}. A IA usa essa fala, palavra por palavra, para colocar legendas e motions no momento certo.</p>
             </>
           ) : (
             <>
-              <p className="text-sm text-smoke">Este vídeo ainda não tem transcrição (sem fala detectada, ou a chave da ElevenLabs não está configurada no motor: secret ELEVENLABS_API_KEY no GitHub).</p>
+              <p className="text-sm text-smoke">Este vídeo ainda não tem transcrição.{data.error ? "" : " Sem fala detectada, ou nenhum transcritor configurado no motor (ELEVENLABS_API_KEY ou GEMINI_API_KEY nos Secrets do GitHub)."}</p>
+              {data.error && <p className="text-sm text-red-400">Motivo: {data.error}{/Speech to Text/.test(data.error) ? " — na ElevenLabs, abra Developers → API Keys, edite a chave e ative “Speech to Text”." : ""}</p>}
               <button className="btn-ghost" disabled={busy} onClick={() => { if (confirm("Transcrever de novo refaz a análise e o plano do diretor (as edições do chat ficam no histórico). Continuar?")) onRedo(); }}>Transcrever de novo</button>
             </>
           )}

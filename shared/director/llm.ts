@@ -33,7 +33,8 @@ COMO DECIDIR:
 - captionPos por clip: olhe o quadro mais próximo; a legenda vai onde NÃO cobre o rosto nem o produto (rosto em cima → "bottom"; produto/mãos embaixo → "top"; plano fechado no centro → "bottom").
 - captions.items fica vazio (o sistema gera da transcrição, sincronizado). keywords = preço, modelo, benefício, número, nome da loja, exatamente como ditos.
 - texts/price/cards: ancore no segundo exato em que a palavra é DITA (campo "at", tempo da fonte, dentro de um clip que você manteve). Nada aparece antes de ser falado.
-- cards = motion em tela cheia por cima da filmagem por 1-3s: use 0 a 4, só em momentos que ganham com isso (preço revelado, lista de benefícios, comparação, número). Não cubra o rosto enquanto a pessoa fala algo emocional.
+- cards = motion em tela cheia por cima da filmagem por 1.2-2.5s: use de 2 a 4 (1 se o vídeo tiver menos de 12s), nos momentos que ganham com isso (preço revelado, benefício forte, comparação, número, chamada). Varie o tipo (check, price, compare, counter, feature com icon ou visual). Não cubra o rosto enquanto a pessoa fala algo emocional.
+- Sem transcrição palavra a palavra: ancore "at" no início do trecho de fala ou no quadro correspondente.
 - texts = reforço curto do que está sendo dito (2-5 palavras), com emoji que combine. Não repita a legenda palavra por palavra.
 - Não invente preço nem fatos: use só a fala e as instruções.
 TRILHA: se hasMusic=true use {"volume":0.16-0.22,"track":null} (trilha enviada). Se hasMusic=false ESCOLHA uma trilha gerada: trap = energia/venda direta (130-150 bpm),

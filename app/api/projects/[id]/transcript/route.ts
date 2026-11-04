@@ -34,5 +34,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const name = String(p.name || "transcricao").replace(/[^\p{L}\p{N} _-]/gu, "").trim() || "transcricao";
     return new Response(srt, { headers: { "content-type": "application/x-subrip; charset=utf-8", "content-disposition": `attachment; filename="${encodeURIComponent(name)}.srt"` } });
   }
-  return NextResponse.json({ provider: p.analysis?.transcriptProvider ?? "nenhum", hasVideo: !!p.source_path, lines: ls, text: ls.map((l) => l.text).join("\n") });
+  return NextResponse.json({ error: p.analysis?.transcriptError ?? null, provider: p.analysis?.transcriptProvider ?? "nenhum", hasVideo: !!p.source_path, lines: ls, text: ls.map((l) => l.text).join("\n") });
 }

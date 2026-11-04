@@ -18,21 +18,42 @@ export function buildBaseArgs(edl: Edl, inp: BaseInputs, out: string, intermedia
   const total = edlDuration(edl);
   const args = ["-y", "-hide_banner", "-loglevel", "error", "-stats", "-stats_period", "0.5"];
   const f: string[] = [];
-  const pairs: string[] = [];
 
-  edl.clips.forEach((c, i) => {
-    args.push("-ss", f3(c.in), "-t", f3(c.out - c.in), "-i", inp.source);
-    const sp = c.speed || 1;
-    const z = c.zoom || 1;
-    f.push(`[${i}:v]setpts=(PTS-STARTPTS)/${sp},fps=${edl.fps},scale=${even(W * z)}:${even(H * z)}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,format=yuv420p[v${i}]`);
-    const d = clipDuration(c);
-    if (inp.hasAudio) f.push(`[${i}:a]asetpts=PTS-STARTPTS,atempo=${sp},aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=0:${f3(d)}[a${i}]`);
+  // Trechos contínuos (jump zoom: mesmo vídeo, sem pulo no tempo) viram UMA entrada: o áudio corre inteiro, sem emendas
+  // (antes cada pedaço era cortado e emendado → estalos a cada zoom); o vídeo é fatiado por quadro exato e cada fatia ganha seu zoom.
+  const groups: { in: number; out: number; speed: number; parts: typeof edl.clips }[] = [];
+  for (const c of edl.clips) {
+    const g = groups[groups.length - 1];
+    if (g && Math.abs(c.in - g.out) < 0.02 && (c.speed || 1) === g.speed) { g.out = c.out; g.parts.push(c); }
+    else groups.push({ in: c.in, out: c.out, speed: c.speed || 1, parts: [c] });
+  }
+  const vParts: string[] = [];
+  const aParts: string[] = [];
+  let k = 0;
+  groups.forEach((g, i) => {
+    args.push("-ss", f3(g.in), "-t", f3(g.out - g.in), "-i", inp.source);
+    const sp = g.speed;
+    const gDur = (g.out - g.in) / sp;
+    const gFrames = Math.max(1, Math.round(gDur * edl.fps));
+    const n = g.parts.length;
+    f.push(`[${i}:v]setpts=(PTS-STARTPTS)/${sp},fps=${edl.fps},trim=end_frame=${gFrames},tpad=stop_mode=clone:stop=${gFrames}${n > 1 ? `,split=${n}${g.parts.map((_, j) => `[g${i}s${j}]`).join("")}` : `[g${i}s0]`}`);
+    let acc = 0;
+    g.parts.forEach((c, j) => {
+      const a = Math.round(acc * edl.fps);
+      acc += (c.out - c.in) / sp;
+      const b = j === n - 1 ? gFrames : Math.round(acc * edl.fps);
+      const z = c.zoom || 1;
+      f.push(`[g${i}s${j}]trim=start_frame=${a}:end_frame=${Math.max(a + 1, b)},setpts=PTS-STARTPTS,scale=${even(W * z)}:${even(H * z)}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,format=yuv420p[v${k}]`);
+      vParts.push(`[v${k++}]`);
+    });
+    const d = gFrames / edl.fps;
+    if (inp.hasAudio) f.push(`[${i}:a]asetpts=PTS-STARTPTS,atempo=${sp},aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=0:${f3(d)},asetpts=PTS-STARTPTS[a${i}]`);
     else f.push(`anullsrc=r=48000:cl=stereo,atrim=0:${f3(d)}[a${i}]`);
-    pairs.push(`[v${i}][a${i}]`);
+    aParts.push(`[a${i}]`);
   });
-  const n = edl.clips.length;
-  f.push(`${pairs.join("")}concat=n=${n}:v=1:a=1[vout][acat]`);
-
+  f.push(`${vParts.join("")}concat=n=${vParts.length}:v=1:a=0[vout]`);
+  f.push(`${aParts.join("")}concat=n=${aParts.length}:v=0:a=1[acat]`);
+  const n = groups.length;
   const mix: string[] = [];
   let idx = n;
   const srcVol = edl.audio.narration && inp.narration ? edl.audio.sourceVolume * 0.35 : edl.audio.sourceVolume;

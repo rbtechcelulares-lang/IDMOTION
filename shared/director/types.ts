@@ -13,6 +13,7 @@ export type Analysis = {
   words: Word[] | null; // transcrição com tempos (null = sem transcrição)
   transcript: string;
   transcriptProvider: string;
+  transcriptError?: string | null;
   frames: { t: number; path: string }[]; // relativos a DATA_DIR
   loudnessLufs: number | null;
 };

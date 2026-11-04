@@ -3,26 +3,29 @@ import { FORMATS, STYLES } from "./constants";
 import { ANIMS, APP_SCREENS, BACKGROUNDS, LAYOUTS, TEXTURES, TRANSITIONS, VISUALS } from "./motion";
 
 /** EDL (Edit Decision List) do ID MOTION. Tempos em segundos. */
+/** Texto com limite: se a IA passar do tamanho, corta (com "…") em vez de rejeitar o plano inteiro. */
+const txt = (max: number) => z.string().transform((s) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s));
+
 export const ClipSchema = z.object({
   in: z.number().min(0),
   out: z.number().positive(),
   speed: z.number().min(0.5).max(2).default(1),
   zoom: z.number().min(1).max(1.6).default(1), // punch-in
-  label: z.string().max(80).optional(),
+  label: txt(80).optional(),
   captionPos: z.enum(["top", "center", "bottom"]).optional(), // onde a legenda fica neste trecho (longe do rosto/produto)
 }).refine((c) => c.out > c.in + 0.1, { message: "clip.out deve ser maior que clip.in" });
 
 const Timed = { start: z.number().min(0), end: z.number().positive() };
 
-export const CaptionSchema = z.object({ ...Timed, text: z.string().min(1).max(120) });
+export const CaptionSchema = z.object({ ...Timed, text: z.string().min(1).pipe(txt(120)) });
 
 export const SCENE_KINDS = ["title", "feature", "price", "cta", "compare", "counter", "check"] as const;
 const CompareSide = z.object({ label: z.string().max(40).default(""), value: z.string().min(1).max(30), sub: z.string().max(60).optional() });
 // Texto aceita *destaque* (cor de acento) e ~riscado~.
 export const MotionSceneSchema = z.object({
   kind: z.enum(SCENE_KINDS).default("feature"),
-  text: z.string().min(1).max(90),
-  sub: z.string().max(120).optional(),
+  text: z.string().min(1).pipe(txt(90)),
+  sub: txt(120).optional(),
   duration: z.number().min(0.8).max(8).default(2.2),
   icon: z.string().max(40).optional(), // nome de ícone (Lucide) ou emoji
   bg: z.enum(BACKGROUNDS).optional(), // fundo só desta cena
@@ -53,16 +56,16 @@ export const EdlSchema = z.object({
     position: z.enum(["bottom", "center", "top"]).default("bottom"),
     size: z.enum(["sm", "md", "lg"]).default("md"),
     items: z.array(CaptionSchema).max(1000).default([]),
-    keywords: z.array(z.string().max(30)).max(40).default([]), // palavras da fala que ganham destaque (preço, modelo, benefício)
+    keywords: z.array(txt(30)).max(40).default([]), // palavras da fala que ganham destaque (preço, modelo, benefício)
   }),
   overlays: z.object({
-    intro: z.object({ text: z.string().min(1).max(60), sub: z.string().max(80).optional(), duration: z.number().min(0.5).max(6).default(2.2) }).nullable().default(null),
+    intro: z.object({ text: z.string().min(1).pipe(txt(60)), sub: txt(80).optional(), duration: z.number().min(0.5).max(6).default(2.2) }).nullable().default(null),
     // "at" = segundo do VÍDEO-FONTE em que a palavra é dita; o sistema converte para a timeline (start/end)
-    texts: z.array(z.object({ ...Timed, at: z.number().min(0).optional(), text: z.string().min(1).max(80), position: z.enum(["top", "center", "bottom"]).default("top"), emoji: z.string().max(16).optional() })).max(50).default([]),
-    price: z.object({ ...Timed, at: z.number().min(0).optional(), value: z.string().min(1).max(30), label: z.string().max(40).optional() }).nullable().default(null),
+    texts: z.array(z.object({ ...Timed, at: z.number().min(0).optional(), text: z.string().min(1).pipe(txt(80)), position: z.enum(["top", "center", "bottom"]).default("top"), emoji: txt(16).optional() })).max(50).default([]),
+    price: z.object({ ...Timed, at: z.number().min(0).optional(), value: z.string().min(1).pipe(txt(30)), label: txt(40).optional() }).nullable().default(null),
     // cards de motion em TELA CHEIA por cima da filmagem, nos momentos-chave da fala
     cards: z.array(z.object({ start: z.number().min(0).default(0), at: z.number().min(0).optional(), scene: MotionSceneSchema })).max(10).default([]),
-    cta: z.object({ text: z.string().min(1).max(60), sub: z.string().max(80).optional(), duration: z.number().min(1).max(8).default(3) }).nullable().default(null),
+    cta: z.object({ text: z.string().min(1).pipe(txt(60)), sub: txt(80).optional(), duration: z.number().min(1).max(8).default(3) }).nullable().default(null),
   }),
   audio: z.object({
     sourceVolume: z.number().min(0).max(2).default(1),
@@ -77,7 +80,7 @@ export const EdlSchema = z.object({
     // efeitos sonoros sintetizados (whoosh nas trocas, impacto no preço, sons ligados à fala)
     sfx: z.object({ enabled: z.boolean().default(true), volume: z.number().min(0).max(1.5).default(0.7) }).default({ enabled: true, volume: 0.7 }),
   }),
-  notes: z.string().max(500).default(""),
+  notes: txt(500).default(""),
 }).refine((e) => (e.mode === "motion" ? !!e.motion?.scenes.length : e.clips.length > 0), { message: "EDL precisa de clips (vídeo) ou cenas (motion)" });
 
 export type Edl = z.infer<typeof EdlSchema>;

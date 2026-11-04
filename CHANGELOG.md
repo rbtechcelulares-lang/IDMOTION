@@ -126,3 +126,9 @@
 - Textos, preço e cards ancorados no segundo em que a palavra é dita (convertido para a timeline após os cortes).
 - Cards de motion em tela cheia nos momentos-chave, com varredura e efeitos sonoros.
 - Automático em vídeo real: Opus primeiro (se houver chave Anthropic), depois Gemini.
+
+## Correções do vídeo real (áudio, legendas, motions)
+- Removido o "pop" que tocava a cada jump zoom (era o picote); trechos contínuos agora são uma entrada só, com áudio contínuo e zoom trocado por quadro exato.
+- Transcrição: se a ElevenLabs falhar (ex.: chave sem permissão Speech to Text), o Gemini transcreve (tempo por frase); o motivo aparece no chat e no painel de transcrição.
+- Texto longo da IA é cortado em vez de rejeitar o plano (o plano com cards estava sendo descartado por "notes" > 500).
+- IA usa 2–4 cards de motion por vídeo; abertura vira título por cima da filmagem quando a pessoa já fala no começo (não esconde a legenda).

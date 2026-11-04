@@ -38,7 +38,9 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   await Promise.all(frames.map((f) => store(f.file, "image/jpeg")));
 
   let words: Analysis["words"] = null;
+  let transcriptError: string | null = null;
   const tr = getTranscriber();
+  if (!tr && meta.hasAudio) transcriptError = "nenhum transcritor configurado (ELEVENLABS_API_KEY ou GEMINI_API_KEY)";
   if (tr && meta.hasAudio) {
     await ctx.progress(0.6, "Transcrevendo", true);
     try {
@@ -46,12 +48,14 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
     } catch (e) {
       console.warn("[analyze] transcrição falhou, seguindo sem legendas:", (e as Error).message);
     }
+    const errs = tr.errors ?? [];
+    if (errs.length) transcriptError = errs.map((x) => (/speech_to_text|missing_permissions/.test(x) ? "ElevenLabs: a chave não tem permissão de Speech to Text" : x)).join(" | ").slice(0, 300);
   }
 
   const analysis: Analysis = {
     duration: meta.duration, width: meta.width, height: meta.height, fps: meta.fps, hasAudio: meta.hasAudio,
     scenes, silences, speech, words, transcript: words?.map((w) => w.text).join(" ") ?? "",
-    transcriptProvider: words ? tr!.name : "nenhum", frames: frames.map((f) => ({ t: f.t, path: rel(f.file) })), loudnessLufs: lufs,
+    transcriptProvider: words ? tr!.name : "nenhum", transcriptError, frames: frames.map((f) => ({ t: f.t, path: rel(f.file) })), loudnessLufs: lufs,
   };
   await db.from("projects").update({ analysis }).eq("id", p.id);
 
@@ -65,7 +69,7 @@ export async function runAnalyze(job: Job, ctx: JobCtx) {
   const { data: last } = await db.from("edl_versions").select("version").eq("project_id", p.id).order("version", { ascending: false }).limit(1);
   const version = (last?.[0]?.version ?? 0) + 1;
   await db.from("edl_versions").insert({ project_id: p.id, version, parent_version: null, edl, source: "director", note: `Plano inicial (${director.name})` });
-  await db.from("chat_messages").insert({ project_id: p.id, role: "assistant", content: `Plano criado por ${director.name}: ${edl.clips.length} cortes, ${edl.overlays.price ? "com preço, " : ""}${edl.captions.items.length} legendas. Peça alterações aqui ou exporte.${/Revisão: /.test(edl.notes) ? `\n${edl.notes.slice(edl.notes.indexOf("Revisão: "))}` : ""}`, edl_version: version });
+  await db.from("chat_messages").insert({ project_id: p.id, role: "assistant", content: `Plano criado por ${director.name}: ${edl.clips.length} cortes, ${edl.overlays.price ? "com preço, " : ""}${edl.overlays.cards.length} cards de motion, ${edl.overlays.texts.length} textos, ${edl.captions.items.length} legendas${words ? ` (transcrição: ${tr!.name})` : ""}. Peça alterações aqui ou exporte.${transcriptError ? `\n⚠️ Transcrição: ${transcriptError}${words ? " — usei a reserva." : " — sem legendas."}` : ""}${/Revisão: /.test(edl.notes) ? `\n${edl.notes.slice(edl.notes.indexOf("Revisão: "))}` : ""}`, edl_version: version });
   await db.from("projects").update({ status: "ready", current_version: version, error: null, updated_at: new Date().toISOString() }).eq("id", p.id);
   return { version };
 }

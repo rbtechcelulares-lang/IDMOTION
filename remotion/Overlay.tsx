@@ -46,8 +46,10 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
   const look = LOOK[edl.preset];
   const { intro, cta, price, texts } = edl.overlays;
   const introDur = intro ? Math.min(intro.duration, 2.4) : 0;
+  // se a pessoa já está falando no começo, a abertura vira um título por cima da filmagem (não cobre o rosto nem esconde a legenda)
+  const introOver = !!intro && edl.captions.items.some((c) => c.start < introDur);
   const ctaStart = cta ? total - cta.duration : Infinity;
-  const inIntro = t < introDur;
+  const inIntro = t < introDur && !introOver;
   const inCta = t >= ctaStart;
   const cards = edl.overlays.cards ?? [];
   const inCard = cards.some((c) => t >= c.start && t < c.start + c.scene.duration);
@@ -82,13 +84,14 @@ const VideoOverlay: React.FC<P> = ({ edl }) => {
       {txt && bodyOn && <Headline key={`t${txt.start}`} edl={edl} text={txt.text} local={t - txt.start} dur={txt.end - txt.start} zone={txtZone} u={u} emoji={txt.emoji ?? emojiFor(txt.text)} />}
       {priceOn && price && <PriceSticker edl={edl} local={t - price.start} dur={price.end - price.start} u={u} />}
 
-      {intro && introF > 0 && (
+      {intro && introOver && t < introDur && <Headline edl={edl} text={intro.text} local={t} dur={introDur} zone={capZone === "upper" ? "lower" : "upper"} u={u} emoji={emojiFor(`${intro.text} ${intro.sub ?? ""}`)} />}
+      {intro && introF > 0 && !introOver && (
         <Sequence from={0} durationInFrames={introF}>
           <Card edl={edl} bg={introBg} texture={texture} durF={introF}
             scene={{ kind: "title", text: autoMark(intro.text), sub: intro.sub, duration: introDur, icon: emojiFor(`${intro.text} ${intro.sub ?? ""}`), anim: edl.preset === "viral" ? "zoom" : edl.preset === "premium" ? "blur" : "rise", layout: "center" }} />
         </Sequence>
       )}
-      {intro && introF > 0 && edl.preset !== "cinematic" && (
+      {intro && introF > 0 && !introOver && edl.preset !== "cinematic" && (
         <Sequence from={Math.max(0, introF - 8)} durationInFrames={18}><TransitionFx kind="wipe-lr" half={8} light={false} /></Sequence>
       )}
       {cta && (

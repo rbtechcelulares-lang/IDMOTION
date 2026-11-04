@@ -44,13 +44,12 @@ export function planSfx(edl: Edl): SfxCue[] {
     });
     return cues;
   }
-  // vídeo real: whoosh só em corte de verdade (pulo no tempo), "pop" nos jump zooms, sons nos textos, impacto no preço, riser + hit na chamada
+  // vídeo real: whoosh só em corte de verdade (pulo no tempo; jump zoom é silencioso), sons nos textos, impacto no preço, riser + hit na chamada
   let t = 0;
   edl.clips.forEach((c, i) => {
     if (i > 0) {
       const jump = Math.abs(c.in - edl.clips[i - 1].out) > 0.05;
       if (jump) cues.push({ name: i % 3 === 0 ? "wipe" : "whoosh", t: Math.max(0, t - 0.12), gain: 0.4 });
-      else if (c.zoom !== edl.clips[i - 1].zoom) cues.push({ name: "pop", t, gain: 0.25 });
     }
     t += clipDuration(c);
   });

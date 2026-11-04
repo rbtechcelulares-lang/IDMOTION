@@ -59,3 +59,20 @@ test("vídeo real: textos/preço/cards ancorados na palavra falada viram tempo d
   assert.equal(edl.clips[0].captionPos, "top");
   assert.deepEqual(edl.captions.keywords, ["R$", "garantia"]);
 });
+
+test("transcrição de reserva: frases com tempo viram palavras em ordem dentro da frase", async () => {
+  process.env.SUPABASE_URL ||= "http://x"; process.env.SUPABASE_SERVICE_ROLE_KEY ||= "x";
+  const { spread } = await import("../worker/src/transcribe");
+  const w = spread([{ start: 1, end: 3, text: "iPhone 13 por dois mil" }, { start: 4, end: 5, text: "garantia" }]);
+  assert.equal(w.length, 6);
+  assert.equal(w[0].start, 1);
+  assert.ok(Math.abs(w[4].end - 3) < 0.01);
+  assert.ok(w.every((x, i) => i === 0 || x.start >= w[i - 1].start));
+});
+
+test("texto longo da IA é cortado em vez de derrubar o plano", async () => {
+  const { EdlSchema } = await import("../shared/edl");
+  const e = EdlSchema.parse({ mode: "video", format: "9:16", preset: "viral", clips: [{ in: 0, out: 2 }], captions: {}, overlays: { texts: [{ start: 0, end: 1, text: "x".repeat(200) }] }, audio: {}, notes: "n".repeat(900) });
+  assert.equal(e.notes.length, 500);
+  assert.equal(e.overlays.texts[0].text.length, 80);
+});
