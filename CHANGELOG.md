@@ -109,3 +109,7 @@
 - Textos sobre a filmagem 2–3× maiores, palavra a palavra, destaque automático (preço/data/VIP), emoji temático e escurecimento embaixo para leitura.
 - Preço em adesivo amarelo grande com brilho e flash; CTA sempre cabe na largura.
 - Tomadas longas ganham jump zoom (aberto/fechado) sem mudar o tempo; efeitos sonoros nos textos, preço, abertura e CTA.
+
+## Briefing "Textos na tela:"
+- Tudo antes de "Textos na tela:" (ou "Na tela:", "Cenas:", "Frases:") é direção; cada linha depois vira uma cena — em qualquer IA (Haiku, Gemini, Opus, regras).
+- A IA recebe a lista obrigatória de cenas; se devolver direção como cena ou pular textos, o plano é refeito (ou cai nas regras, que já separam certo).

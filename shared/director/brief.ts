@@ -11,13 +11,47 @@ const QUOTE_RE = /[“"«]([^”"»\n]{2,140})[”"»]/g;
 const SCENE_RE = /^\s*(?:cena|scene|parte)\s*(\d+)\s*[-–—:.)]*\s*(.*)$/i;
 const SECTION_RE = /^\s*(conceito|headline|headline principal|dire[çc][aã]o criativa|roteiro( do v[ií]deo)?|estilo|dura[çc][aã]o|observa[çc][õo]es|regras|prompt|objetivo|p[uú]blico)\b[^:]*:?/i;
 
+// "Textos na tela:", "Texto na tela:", "Na tela:", "Cenas:", "Frases:" — cada linha depois disso é uma cena; o que vem antes é direção
+const SCREEN_RE = /^\s*(?:textos?\s+(?:na|da|de)\s+tela|na\s+tela|cenas|frases(?:\s+na\s+tela)?|o que aparece(?:\s+na\s+tela)?)\s*:\s*(.*)$/im;
+
 export function isCreativeBrief(t: string): boolean {
+  if (SCREEN_RE.test(t)) return true;
   const quotes = (t.match(QUOTE_RE) || []).length;
   return /^\s*cena\s*\d+/im.test(t) || /\b(roteiro|headline|dire[çc][aã]o criativa)\b/i.test(t) || (quotes >= 2 && t.length > 250);
 }
 
+function screenSection(text: string): { scenes: BriefScene[]; direction: string } | null {
+  const m = text.match(SCREEN_RE);
+  if (!m || m.index === undefined) return null;
+  const direction = text.slice(0, m.index);
+  const after = [m[1], ...text.slice(m.index + m[0].length).split(/\r?\n/)];
+  const scenes: BriefScene[] = [];
+  for (const raw of after) {
+    // tira só marcadores de lista (mantém *destaque* no começo da linha)
+    const line = raw.replace(/^\s*(?:[-•–]|\d{1,2}[.)])\s+/, "").replace(/^[“"]|[”"]$/g, "").trim();
+    if (!line) continue;
+    if (SECTION_RE.test(line) && /:/.test(line.slice(0, 30)) && !/^novidade/i.test(line)) break; // nova seção de direção depois dos textos
+    scenes.push({ texts: [line], desc: "", title: "" });
+  }
+  return scenes.length ? { scenes, direction } : null;
+}
+
+/** Lista explícita de textos de tela ("Textos na tela:" …), ou null. */
+export function screenLines(text: string): string[] | null {
+  return screenSection(text)?.scenes.flatMap((s) => s.texts) ?? null;
+}
+
 export function parseCreativeBrief(text: string): CreativeBrief | null {
   if (!isCreativeBrief(text)) return null;
+  const sec = screenSection(text);
+  if (sec) {
+    const low = sec.direction.toLowerCase();
+    const bgLine = low.split("\n").find((l) => /fundo/.test(l)) ?? "";
+    const dm = low.match(/dura[çc][aã]o[^\d]{0,20}(\d{1,3})\s*(?:a|-|–|até|e)\s*(\d{1,3})\s*s/) ?? low.match(/dura[çc][aã]o[^\d]{0,20}(\d{1,3})\s*s/);
+    const target = dm ? (dm[2] ? (Number(dm[1]) + Number(dm[2])) / 2 : Number(dm[1])) : undefined;
+    if (sec.scenes.length) sec.scenes[0].desc = sec.direction.replace(/\s+/g, " ").slice(0, 400);
+    return { scenes: sec.scenes, bg: BG_WORDS.find(([re]) => re.test(bgLine))?.[1], target, logoAtEnd: false };
+  }
   const lines = text.split(/\r?\n/).map((l) => l.replace(/^[\s*•\-–]+/, "").trim());
   const scenes: BriefScene[] = [];
   let cur: BriefScene | null = null;

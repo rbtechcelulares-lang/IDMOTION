@@ -1,3 +1,4 @@
+import { screenLines } from "./brief";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { type Edl, EdlSchema } from "../edl";
@@ -46,6 +47,17 @@ Regras: 1ª cena "title", última "cta" (ou o encerramento do briefing). Textos 
 Use só informações das instruções. Duração total típica 12-30s. Trilha: se hasMusic=true use "track":null; senão escolha track (trap energia, pop animado, light premium) com volume 0.9.`;
 
 const STYLE_GUIDE = `${RBTECH_GUIDE}\nEstilos: viral = cortes de 1-3s, punch-in alternado (zoom 1.1-1.2), legenda lg; cinematic = cortes longos, ritmo calmo, zoom 1; premium = limpo, destaque de produto e preço, zoom sutil.`;
+
+const words = (s: string) => new Set(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[\p{L}\p{N}]{3,}/gu) ?? []);
+/** A IA seguiu o briefing? Nenhuma cena de direção e quase todos os textos de tela presentes. */
+export function followsScreen(edl: Edl, screen: string[]): boolean {
+  const scenes = edl.motion?.scenes ?? [];
+  const sw = scenes.map((s) => words(`${s.text} ${s.sub ?? ""}`));
+  const hit = (t: string) => { const w = words(t); if (!w.size) return true; return sw.some((x) => [...w].filter((k) => x.has(k)).length / w.size >= 0.5); };
+  const found = screen.filter(hit).length;
+  const direction = scenes.some((s) => /^(p[uú]blico|tom|dura[çc][aã]o|fundo|campanha|estilo|objetivo)\b/i.test(s.text.replace(/[*~]/g, "")));
+  return !direction && found >= Math.ceil(screen.length * 0.8) && scenes.length <= screen.length + 2;
+}
 
 function summarize(a: Analysis) {
   const segs = a.speech.slice(0, 200).map((s) => {
@@ -197,11 +209,15 @@ export class LlmDirector implements Director {
       const system = `Você é o AI Director do ID MOTION, criador de vídeos curtos de venda 100% animados. Responda SOMENTE com JSON válido.\n${MOTION_DOC}\n${STYLE_GUIDE}`;
       // rascunho do diretor por regras: ponto de partida que a IA deve MELHORAR (não copiar às cegas)
       const draft = await this.fallback.plan(a, b).then((d) => ({ theme: d.motion?.theme, scenes: d.motion?.scenes })).catch(() => null);
-      const text = `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções:\n${b.instructions || "(nenhuma)"}\n\nRASCUNHO (regras; melhore textos, ordem, ritmo, ícones e visual, sem inventar fatos):\n${JSON.stringify(draft)}\n\nGere o EDL motion.`;
+      const screen = screenLines(b.instructions || "");
+      const must = screen ? `\n\nTEXTOS DE TELA (OBRIGATÓRIO): o vídeo tem EXATAMENTE estas ${screen.length} cenas, nesta ordem, uma por linha; pode encurtar/ajustar a escrita e o *destaque*, mas não junte, não pule e não crie cenas com a direção (público, tom, duração, fundo):\n${screen.map((t, i) => `${i + 1}. ${t}`).join("\n")}` : "";
+      const text = `BRIEF\nnome: ${b.name}\nformato: ${b.format}\nestilo: ${b.style}\nobjetivo: ${b.objective}\nhasMusic: ${b.hasMusic}\ninstruções:\n${b.instructions || "(nenhuma)"}${must}\n\nRASCUNHO (regras; melhore textos, ordem, ritmo, ícones e visual, sem inventar fatos):\n${JSON.stringify(draft)}\n\nGere o EDL motion.`;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const raw = extractJson(await this.ask(system, [{ type: "text", text }])) as Record<string, unknown>;
-          return withMusic(finalizeEdl({ ...raw, mode: "motion", clips: [], format: b.format }, a), b);
+          const edl = withMusic(finalizeEdl({ ...raw, mode: "motion", clips: [], format: b.format }, a), b);
+          if (screen && !followsScreen(edl, screen)) throw new Error("a IA não seguiu os textos de tela do briefing");
+          return edl;
         } catch (e) {
           console.warn(`[director] motion tentativa ${attempt + 1} inválida:`, (e as Error).message);
           if (isTransportError(e)) break; // IA fora do ar/lenta: não repetir a lista toda, vai para as regras
