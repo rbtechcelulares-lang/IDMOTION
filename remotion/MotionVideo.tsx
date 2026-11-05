@@ -10,6 +10,9 @@ type Theme = NonNullable<Edl["motion"]>["theme"];
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const EMOJI_FONT = '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
 
+/** Tamanho de fonte para uma linha que não quebra caber em maxW (Poppins pesada ≈ 0,62 em por caractere). */
+const fitLine = (text: string, maxW: number, maxSize: number) => Math.min(maxSize, maxW / (Math.max(1, text.length) * 0.62));
+
 /** Cores por fundo: texto, acento e cor dos ícones. */
 function palette(bg: Background) {
   if (bg === "yellow") return { fg: INK, accent: INK, mark: "#ffffff", icon: INK, glow: "rgba(0,0,0,.18)", light: true };
@@ -559,7 +562,7 @@ export function SceneView({ edl, scene, bg, index, total, dur, boost = 1 }: { ed
         <div style={{ position: "relative", width: 380 * u, padding: `${48 * u}px ${30 * u}px`, borderRadius: 30 * u, textAlign: "center", transform: `translateY(${(1 - cs) * 120 * u}px) scale(${win ? 1.06 : 0.94}) rotate(${win ? 2 : -3}deg)`, opacity: Math.min(1, cs * 1.5) * (win ? 1 : 0.6),
           background: pal.light ? (win ? "#fff" : "#e9e9e9") : win ? "linear-gradient(170deg,#1a1405,#0b0b0b)" : "#161616", border: win ? `${3 * u}px solid ${YELLOW}` : `${2 * u}px solid ${pal.light ? "#ddd" : "#2a2a2a"}`, boxShadow: win ? `0 0 ${60 * u}px rgba(255,214,10,.3)` : undefined }}>
           {side.label && <div style={{ fontSize: 30 * u, fontWeight: 700, letterSpacing: 3 * u, textTransform: "uppercase", color: pal.light ? "#555" : "#9a9a9a" }}>{side.label}</div>}
-          <div style={{ fontSize: 92 * u, fontWeight: 900, color: win ? (pal.light ? INK : YELLOW) : pal.fg, lineHeight: 1.1, whiteSpace: "nowrap" }}>{side.value}</div>
+          <div style={{ fontSize: fitLine(side.value, 320 * u, 92 * u), fontWeight: 900, color: win ? (pal.light ? INK : YELLOW) : pal.fg, lineHeight: 1.1, whiteSpace: "nowrap" }}>{side.value}</div>
           {side.sub && <div style={{ fontSize: 30 * u, color: pal.light ? "#555" : "#aaa" }}>{side.sub}</div>}
           {win && <div style={{ position: "absolute", top: -22 * u, left: "50%", transform: "translateX(-50%)", background: YELLOW, color: INK, fontSize: 24 * u, fontWeight: 900, padding: `${6 * u}px ${18 * u}px`, borderRadius: 999, whiteSpace: "nowrap" }}>MELHOR ESCOLHA</div>}
         </div>
@@ -596,7 +599,18 @@ export function SceneView({ edl, scene, bg, index, total, dur, boost = 1 }: { ed
             return <div key={k} style={{ position: "absolute", left: R + Math.cos(a) * R - 9 * u, top: R + Math.sin(a) * R - 9 * u, width: 18 * u, height: 18 * u, borderRadius: 99, background: on ? pal.accent : "transparent", border: on ? undefined : `${2 * u}px solid ${pal.light ? "#bbb" : "#555"}`, boxShadow: on && !pal.light ? `0 0 ${14 * u}px ${pal.glow}` : undefined }} />;
           })}
           {scene.sub && <div style={{ fontSize: 46 * u, fontWeight: 600, color: pal.light ? "#333" : "#e5e5e5", opacity: fadeIn }}>{subText}</div>}
-          <div style={{ fontSize: size * 0.82, fontWeight: 900, color: pal.accent, textShadow: pal.light ? undefined : `0 0 ${30 * u}px ${pal.glow}`, whiteSpace: "nowrap" }}>{prefix}{shown}{suffix ? (/^[x%]/i.test(suffix) ? suffix : ` ${suffix}`) : ""}</div>
+          {(() => {
+            // "24x"/"100%" ficam colados no número; sufixo com palavras ("ano de garantia") vai para a linha de baixo
+            const glued = suffix.match(/^[x%]\S{0,2}(?=\s|$)/i)?.[0] ?? "";
+            const below = suffix.slice(glued.length).trim();
+            const line = `${prefix}${shown}${glued}`;
+            return (
+              <>
+                <div style={{ fontSize: fitLine(`${prefix}${plain.match(/\d[\d.,]*/)?.[0] ?? ""}${glued}`, R * 1.55, size * 0.82), fontWeight: 900, color: pal.accent, textShadow: pal.light ? undefined : `0 0 ${30 * u}px ${pal.glow}`, whiteSpace: "nowrap" }}>{line}</div>
+                {below && <div style={{ fontSize: fitLine(below, R * 1.4, 64 * u), fontWeight: 800, color: pal.fg, textAlign: "center", maxWidth: R * 1.5, opacity: fadeIn }}>{below}</div>}
+              </>
+            );
+          })()}
         </div>
       </AbsoluteFill>
     );
@@ -640,7 +654,7 @@ export function SceneView({ edl, scene, bg, index, total, dur, boost = 1 }: { ed
         {iconEl}
         {scene.sub && <div style={subStyle}>{subText}</div>}
         <div style={{ transform: `scale(${preset === "viral" ? 0.6 + 0.4 * s : 1}) rotate(${preset === "viral" ? (1 - s) * -8 - 2 : 0}deg)`, opacity: preset === "viral" ? Math.min(1, s * 2.5) : 1, background: preset === "viral" ? (pal.light ? INK : YELLOW) : "transparent", padding: preset === "viral" ? `${10 * u}px ${36 * u}px` : 0, borderRadius: 20 * u }}>
-          <div style={{ fontSize: size, fontWeight: 900, whiteSpace: "nowrap", color: preset === "viral" ? (pal.light ? YELLOW : INK) : pal.accent, textShadow: preset !== "viral" && !pal.light ? `0 0 ${30 * u}px ${pal.glow}` : undefined, transform: preset === "viral" ? undefined : `translateY(${(1 - s) * 30 * u}px)`, opacity: preset === "viral" ? 1 : fadeIn }}>{plain}</div>
+          <div style={{ fontSize: Math.max(72 * u, fitLine(plain, width * 0.74, size)), whiteSpace: fitLine(plain, width * 0.74, size) < 72 * u ? "normal" : "nowrap", textAlign: "center", lineHeight: 1.05, maxWidth: width * 0.8, fontWeight: 900, color: preset === "viral" ? (pal.light ? YELLOW : INK) : pal.accent, textShadow: preset !== "viral" && !pal.light ? `0 0 ${30 * u}px ${pal.glow}` : undefined, transform: preset === "viral" ? undefined : `translateY(${(1 - s) * 30 * u}px)`, opacity: preset === "viral" ? 1 : fadeIn }}>{plain}</div>
         </div>
       </AbsoluteFill>
     );

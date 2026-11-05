@@ -143,3 +143,4 @@
 - Botões "Posição da legenda": Automático (diretor escolhe por trecho), Em cima, Embaixo — também pelo chat ("legenda em cima", "legenda automática").
 - Na exportação, depois dos cortes, o motor transcreve a fala do vídeo já montado e gera as legendas dela (tempo exato do vídeo final). Se falhar, usa as legendas do plano e avisa nas notas.
 - Exportação não falha mais por problema na chave/créditos da ElevenLabs: o vídeo sai sem voz e o motivo aparece nas notas (ex.: ID da chave colado no lugar da chave).
+- Preço, contador e comparação nunca passam da borda em 9:16: fonte calculada pela linha inteira ("12x de R$ 199,90", "1 ano de garantia"); texto longo do contador vai para a linha de baixo.

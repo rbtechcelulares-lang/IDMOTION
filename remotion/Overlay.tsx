@@ -246,7 +246,8 @@ function PriceSticker({ edl, local, dur, u }: { edl: Edl; local: number; dur: nu
   const s = spring({ frame: f, fps, config: { damping: 9, stiffness: 170 } });
   const out = interpolate(dur - local, [0, 0.2], [0, 1], clamp);
   const value = price.value.replace(/\s+/g, " ").trim();
-  const size = Math.min(170 * u, (width * 0.78) / (value.length * 0.62));
+  const size = Math.max(64 * u, Math.min(170 * u, (width * 0.72) / (value.length * 0.62)));
+  const wrap = (width * 0.72) / (value.length * 0.62) < 64 * u;
   const shine = interpolate(f % 50, [8, 26], [-1.3, 1.3], clamp);
   const cine = edl.preset === "cinematic";
   const bob = Math.sin(local * 3) * 4 * u;
@@ -260,7 +261,7 @@ function PriceSticker({ edl, local, dur, u }: { edl: Edl; local: number; dur: nu
       <div style={{ position: "relative", overflow: "hidden", transform: `translateY(${bob}px) scale(${0.4 + 0.6 * s}) rotate(${cine ? 0 : -3 + (1 - s) * 18}deg)`, opacity: Math.min(1, s * 2.5),
         background: cine ? "rgba(0,0,0,.45)" : `linear-gradient(180deg, #ffe46b 0%, ${YELLOW} 50%, #e8b800 100%)`, color: cine ? YELLOW : INK,
         borderRadius: 26 * u, padding: `${6 * u}px ${44 * u}px ${12 * u}px`, boxShadow: cine ? undefined : `0 ${14 * u}px 0 #000, 0 0 ${60 * u}px rgba(255,214,10,.45)` }}>
-        <div style={{ fontSize: size, fontWeight: 900, lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: -2 * u }}>{value}</div>
+        <div style={{ fontSize: size, fontWeight: 900, lineHeight: 1.1, whiteSpace: wrap ? "normal" : "nowrap", textAlign: "center", maxWidth: width * 0.78, letterSpacing: -2 * u }}>{value}</div>
         {!cine && <div style={{ position: "absolute", top: 0, bottom: 0, width: "35%", left: `${50 + shine * 60}%`, transform: "translateX(-50%) skewX(-20deg)", background: "linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent)" }} />}
       </div>
     </AbsoluteFill>
