@@ -41,6 +41,16 @@ export async function runRender(job: Job, ctx: JobCtx) {
   };
 
   const notes: string[] = [];
+  // problema de conta/chave na ElevenLabs não derruba a exportação: o vídeo sai sem voz e o motivo vai para as notas
+  const voice = async (fn: () => Promise<{ file: string | null; note?: string }>): Promise<{ file: string | null; note?: string }> => {
+    try { return await guard(fn); }
+    catch (e) {
+      const m = (e as Error).message ?? "";
+      if (e instanceof Cancelled || !/ElevenLabs|TTS/i.test(m) || !/40[0-3]|invalid_api_key|missing_permissions|quota|unauthorized/i.test(m)) throw e;
+      const why = /API key ID used/i.test(m) ? "o secret ELEVENLABS_API_KEY tem o ID da chave, não a chave (sk_…)" : /missing_permissions/.test(m) ? "a chave não tem permissão de Text to Speech" : /quota/.test(m) ? "créditos da ElevenLabs acabaram" : "chave da ElevenLabs recusada";
+      return { file: null, note: `Narração ignorada: ${why}. O vídeo saiu sem voz.` };
+    }
+  };
   let narration: string | null = null;
   let narrationDelay: number | undefined;
   if (edl.mode === "motion" && edl.audio.narration && !edl.audio.narration.custom && edl.motion) {
@@ -51,7 +61,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
     const lines = edl.motion.scenes.map((s) => speakable(sceneLine(s), n.tone, s.kind));
     for (let i = 0; i < lines.length; i++) {
       // contexto (frase anterior e próxima): a voz entende que é uma fala só, sem soar como frases soltas
-      const r = await guard(() => narrationFile(lines[i], n.voiceId, n.tone, { previous: lines.slice(Math.max(0, i - 2), i).join(" ") || undefined, next: lines[i + 1] }));
+      const r = await voice(() => narrationFile(lines[i], n.voiceId, n.tone, { previous: lines.slice(Math.max(0, i - 2), i).join(" ") || undefined, next: lines[i + 1] }));
       if (!r.file) { notes.push(r.note ?? "Narração ignorada."); clips.length = 0; break; }
       // corta o silêncio do começo/fim de cada fala
       const trimmed = path.join(dir, `fala_${i}.wav`);
@@ -79,7 +89,7 @@ export async function runRender(job: Job, ctx: JobCtx) {
     }
   } else if (edl.audio.narration) {
     await prog(0.02, "Narração", true);
-    const r = await guard(() => narrationFile(speakable(edl.audio.narration!.text, edl.audio.narration!.tone), edl.audio.narration!.voiceId, edl.audio.narration!.tone));
+    const r = await voice(() => narrationFile(speakable(edl.audio.narration!.text, edl.audio.narration!.tone), edl.audio.narration!.voiceId, edl.audio.narration!.tone));
     narration = r.file;
     if (r.note) notes.push(r.note);
   }
